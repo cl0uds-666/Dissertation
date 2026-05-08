@@ -14,6 +14,7 @@ public class PlayerController : MonoBehaviour
 
     private Rigidbody rb;
     private Vector3 moveDirection;
+    private PlayerCoverController playerCoverController;
 
     private void Awake()
     {
@@ -21,6 +22,8 @@ public class PlayerController : MonoBehaviour
 
         // Stops the capsule from falling over.
         rb.freezeRotation = true;
+
+        playerCoverController = GetComponent<PlayerCoverController>();
     }
 
     private void Update()
@@ -36,7 +39,14 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        Vector3 newPosition = rb.position + moveDirection * moveSpeed * Time.fixedDeltaTime;
+        float movementMultiplier = 1f;
+
+        if (playerCoverController != null)
+        {
+            movementMultiplier = playerCoverController.GetMovementMultiplier();
+        }
+
+        Vector3 newPosition = rb.position + moveDirection * moveSpeed * movementMultiplier * Time.fixedDeltaTime;
 
         rb.MovePosition(newPosition);
     }
