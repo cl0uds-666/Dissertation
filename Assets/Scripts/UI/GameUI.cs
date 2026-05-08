@@ -10,6 +10,7 @@ public class GameUI : MonoBehaviour
     public PlayerHealth playerHealth;
     public DifficultyManager difficultyManager;
     public SectionGenerator sectionGenerator;
+    public PlayerCoverController playerCoverController;
 
     private void Update(){ UpdateHUD(); }
 
@@ -23,8 +24,9 @@ public class GameUI : MonoBehaviour
         string enemiesText = GetEnemiesText();
         string modeText = GetModeText();
         string flowText = GetFlowText();
+        string coverText = GetCoverText();
 
-        hudText.text = healthText + "\n" + sectionText + "\n" + difficultyText + "\n" + enemiesText + "\n" + modeText + "\n" + flowText;
+        hudText.text = healthText + "\n" + sectionText + "\n" + difficultyText + "\n" + enemiesText + "\n" + modeText + "\n" + flowText + "\n" + coverText;
     }
 
     private string GetHealthText(){ if (playerHealth == null) return "Health: N/A"; return "Health: " + playerHealth.GetCurrentHealth().ToString("F0") + " / " + playerHealth.maxHealth.ToString("F0"); }
@@ -41,6 +43,26 @@ public class GameUI : MonoBehaviour
         if (result == null) { return "Flow: N/A"; }
 
         return "Flow: " + result.flowResult + " (" + result.flowScore + ")";
+    }
+
+    private string GetCoverText()
+    {
+        if (playerCoverController == null)
+        {
+            return "Cover: None";
+        }
+
+        if (!playerCoverController.IsInCover)
+        {
+            return "Cover: None";
+        }
+
+        if (playerCoverController.IsPeekingFromCover)
+        {
+            return "Cover: Peeking";
+        }
+
+        return "Cover: Hidden";
     }
 
     private SectionInstance GetCurrentSection(){ if (sectionGenerator == null) return null; return sectionGenerator.GetCurrentActiveSection(); }

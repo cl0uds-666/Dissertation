@@ -26,6 +26,7 @@ public class DifficultyProfile
     public float enemyShotRange;
     public float enemyShotRadius;
     public float enemyShotSpread;
+    public float peekDamageChance;
 
     [Header("Cover Settings")]
     public int coverCount;
@@ -48,6 +49,7 @@ public class DifficultyProfile
         float newEnemyShotRange,
         float newEnemyShotRadius,
         float newEnemyShotSpread,
+        float newPeekDamageChance,
 
         int newCoverCount,
         float newCoverMinSize,
@@ -69,6 +71,7 @@ public class DifficultyProfile
         enemyShotRange = newEnemyShotRange;
         enemyShotRadius = newEnemyShotRadius;
         enemyShotSpread = newEnemyShotSpread;
+        peekDamageChance = newPeekDamageChance;
 
         coverCount = newCoverCount;
         coverMinSize = newCoverMinSize;

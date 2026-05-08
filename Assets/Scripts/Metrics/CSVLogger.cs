@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -12,10 +13,23 @@ public class CSVLogger : MonoBehaviour
 {
     private const string FileName = "section_metrics_log.csv";
 
+    // Shared lock in case multiple logger instances exist.
+    private static readonly object FileWriteLock = new object();
+
     private string filePath;
 
     private void Awake()
     {
+        // Keep only one logger instance to avoid concurrent file writes.
+        CSVLogger[] loggers = FindObjectsByType<CSVLogger>(FindObjectsSortMode.None);
+
+        if (loggers.Length > 1)
+        {
+            Debug.LogWarning("Multiple CSVLogger instances detected. Destroying duplicate on: " + gameObject.name);
+            Destroy(this);
+            return;
+        }
+
         filePath = Path.Combine(Application.persistentDataPath, FileName);
         EnsureFileExistsWithHeader();
     }
@@ -33,9 +47,14 @@ public class CSVLogger : MonoBehaviour
             "CompletionTime,HealthStart,HealthEnd,HealthLost," +
             "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK";
 
-        File.WriteAllText(filePath, header + "\n");
-
-        Debug.Log("CSVLogger created file: " + filePath);
+        lock (FileWriteLock)
+        {
+            if (!File.Exists(filePath))
+            {
+                File.WriteAllText(filePath, header + "\n");
+                Debug.Log("CSVLogger created file: " + filePath);
+            }
+        }
     }
 
     public void LogSectionResult(SectionMetrics metrics, DifficultyAnalysisResult analysis)
@@ -78,7 +97,37 @@ public class CSVLogger : MonoBehaviour
         row.Append(metrics.enemiesKilled).Append(',');
         row.Append(metrics.averageEnemyTimeToKill.ToString("F2"));
 
-        File.AppendAllText(filePath, row + "\n");
+        AppendWithRetry(row + "\n");
+    }
+
+    private void AppendWithRetry(string content)
+    {
+        const int maxAttempts = 5;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                lock (FileWriteLock)
+                {
+                    File.AppendAllText(filePath, content);
+                }
+
+                return;
+            }
+            catch (IOException ex)
+            {
+                Debug.LogWarning("CSVLogger write attempt " + attempt + " failed due to file lock. " + ex.Message);
+
+                if (attempt == maxAttempts)
+                {
+                    Debug.LogError("CSVLogger failed to write after retries. Path: " + filePath);
+                    return;
+                }
+
+                Thread.Sleep(20 * attempt);
+            }
+        }
     }
 
     private string SanitizeCsvText(string value)

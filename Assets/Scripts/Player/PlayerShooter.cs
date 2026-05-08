@@ -23,15 +23,32 @@ public class PlayerShooter : MonoBehaviour
 
     [Header("Debug")]
     public bool drawDebugRay = true;
+    public bool logCoverShootDebug = true;
 
     private float nextFireTime;
 
     private SectionInstance currentSection;
+    private PlayerCoverController playerCoverController;
+
+    private void Awake()
+    {
+        playerCoverController = GetComponent<PlayerCoverController>();
+    }
 
     private void Update()
     {
         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
         {
+            if (!CanShoot())
+            {
+                if (logCoverShootDebug)
+                {
+                    Debug.Log("Shoot blocked. InCover=" + (playerCoverController != null && playerCoverController.IsInCover) + ", Peeking=" + (playerCoverController != null && playerCoverController.IsPeekingFromCover));
+                }
+
+                return;
+            }
+
             Shoot();
             nextFireTime = Time.time + fireRate;
         }
@@ -40,6 +57,21 @@ public class PlayerShooter : MonoBehaviour
     public void SetCurrentSection(SectionInstance section)
     {
         currentSection = section;
+    }
+
+    private bool CanShoot()
+    {
+        if (playerCoverController == null)
+        {
+            return true;
+        }
+
+        if (!playerCoverController.IsInCover)
+        {
+            return true;
+        }
+
+        return playerCoverController.IsPeekingFromCover;
     }
 
     private void Shoot()

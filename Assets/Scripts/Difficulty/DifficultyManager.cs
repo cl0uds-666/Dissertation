@@ -56,17 +56,17 @@ public class DifficultyManager : MonoBehaviour
     {
         switch (currentDifficultyScore)
         {
-            case 1: return new DifficultyProfile(1,2,30f,2.0f,false,true,5f,2.4f,25f,0.10f,0.45f,14,3.0f,5.0f,1.3f,2.4f);
-            case 2: return new DifficultyProfile(2,2,35f,2.2f,false,true,6f,2.2f,27f,0.11f,0.38f,12,2.7f,4.7f,1.2f,2.3f);
-            case 3: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,10,2.3f,4.3f,1.1f,2.1f);
-            case 4: return new DifficultyProfile(4,3,50f,3.0f,false,true,8f,1.8f,32f,0.13f,0.27f,8,1.8f,3.8f,1.0f,1.9f);
-            case 5: return new DifficultyProfile(5,4,60f,3.3f,false,true,9f,1.6f,34f,0.14f,0.22f,7,1.5f,3.4f,1.0f,1.8f);
-            case 6: return new DifficultyProfile(6,4,70f,3.6f,false,true,10f,1.45f,36f,0.15f,0.18f,6,1.3f,3.0f,0.9f,1.7f);
-            case 7: return new DifficultyProfile(7,5,80f,3.9f,false,true,11f,1.3f,38f,0.16f,0.14f,5,1.2f,2.7f,0.9f,1.6f);
-            case 8: return new DifficultyProfile(8,5,90f,4.2f,false,true,12f,1.15f,40f,0.17f,0.10f,4,1.0f,2.5f,0.8f,1.5f);
-            case 9: return new DifficultyProfile(9,6,100f,4.5f,false,true,13f,1.0f,42f,0.18f,0.07f,4,0.9f,2.2f,0.8f,1.4f);
-            case 10: return new DifficultyProfile(10,7,115f,4.8f,false,true,15f,0.85f,45f,0.20f,0.04f,3,0.8f,2.0f,0.7f,1.3f);
-            default: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,10,2.3f,4.3f,1.1f,2.1f);
+            case 1: return new DifficultyProfile(1,2,30f,2.0f,false,true,5f,2.4f,25f,0.10f,0.45f,0.25f,14,3.0f,5.0f,1.3f,2.4f);
+            case 2: return new DifficultyProfile(2,2,35f,2.2f,false,true,6f,2.2f,27f,0.11f,0.38f,0.30f,12,2.7f,4.7f,1.2f,2.3f);
+            case 3: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,0.35f,10,2.3f,4.3f,1.1f,2.1f);
+            case 4: return new DifficultyProfile(4,3,50f,3.0f,false,true,8f,1.8f,32f,0.13f,0.27f,0.40f,8,1.8f,3.8f,1.0f,1.9f);
+            case 5: return new DifficultyProfile(5,4,60f,3.3f,false,true,9f,1.6f,34f,0.14f,0.22f,0.45f,7,1.5f,3.4f,1.0f,1.8f);
+            case 6: return new DifficultyProfile(6,4,70f,3.6f,false,true,10f,1.45f,36f,0.15f,0.18f,0.50f,6,1.3f,3.0f,0.9f,1.7f);
+            case 7: return new DifficultyProfile(7,5,80f,3.9f,false,true,11f,1.3f,38f,0.16f,0.14f,0.55f,5,1.2f,2.7f,0.9f,1.6f);
+            case 8: return new DifficultyProfile(8,5,90f,4.2f,false,true,12f,1.15f,40f,0.17f,0.10f,0.60f,4,1.0f,2.5f,0.8f,1.5f);
+            case 9: return new DifficultyProfile(9,6,100f,4.5f,false,true,13f,1.0f,42f,0.18f,0.07f,0.70f,4,0.9f,2.2f,0.8f,1.4f);
+            case 10: return new DifficultyProfile(10,7,115f,4.8f,false,true,15f,0.85f,45f,0.20f,0.04f,0.80f,3,0.8f,2.0f,0.7f,1.3f);
+            default: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,0.35f,10,2.3f,4.3f,1.1f,2.1f);
         }
     }
 
