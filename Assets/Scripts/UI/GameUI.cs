@@ -57,12 +57,19 @@ public class GameUI : MonoBehaviour
             return "Cover: None";
         }
 
-        if (playerCoverController.IsPeekingFromCover)
+        string coverType = playerCoverController.CurrentCoverType.ToString();
+
+        if (playerCoverController.CurrentPeekMode == PlayerCoverController.CoverPeekMode.PeekOver)
         {
-            return "Cover: Peeking";
+            return "Cover: Peek Over (" + coverType + ")";
         }
 
-        return "Cover: Hidden";
+        if (playerCoverController.CurrentPeekMode == PlayerCoverController.CoverPeekMode.PeekSide)
+        {
+            return "Cover: Peek Side (" + coverType + ")";
+        }
+
+        return "Cover: Hidden (" + coverType + ")";
     }
 
     private SectionInstance GetCurrentSection(){ if (sectionGenerator == null) return null; return sectionGenerator.GetCurrentActiveSection(); }

@@ -35,6 +35,14 @@ public class DifficultyProfile
     public float coverMinHeight;
     public float coverMaxHeight;
 
+    [Header("Side Cover Lane Settings")]
+    public bool sideCoverEnabled;
+    [Range(0f, 1f)] public float sideCoverContinuity;
+    public float sideCoverHeight;
+    public float sideCoverSegmentLength;
+    public float sideCoverGapMin;
+    public float sideCoverGapMax;
+
     public DifficultyProfile(
         int newDifficultyScore,
 
@@ -55,7 +63,14 @@ public class DifficultyProfile
         float newCoverMinSize,
         float newCoverMaxSize,
         float newCoverMinHeight,
-        float newCoverMaxHeight
+        float newCoverMaxHeight,
+
+        bool newSideCoverEnabled,
+        float newSideCoverContinuity,
+        float newSideCoverHeight,
+        float newSideCoverSegmentLength,
+        float newSideCoverGapMin,
+        float newSideCoverGapMax
     )
     {
         difficultyScore = newDifficultyScore;
@@ -78,5 +93,12 @@ public class DifficultyProfile
         coverMaxSize = newCoverMaxSize;
         coverMinHeight = newCoverMinHeight;
         coverMaxHeight = newCoverMaxHeight;
+
+        sideCoverEnabled = newSideCoverEnabled;
+        sideCoverContinuity = newSideCoverContinuity;
+        sideCoverHeight = newSideCoverHeight;
+        sideCoverSegmentLength = newSideCoverSegmentLength;
+        sideCoverGapMin = newSideCoverGapMin;
+        sideCoverGapMax = newSideCoverGapMax;
     }
 }
