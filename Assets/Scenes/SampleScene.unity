@@ -553,6 +553,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 100
+--- !u!114 &1033540831
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1033540817}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c37513270fa163040bc11f19ab0fcc73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  coverSearchRadius: 3
+  coverLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  faceOffset: 0.65
+  hiddenScaleY: 0.55
+  playerCameraTransform: {fileID: 330585546}
+  hiddenCameraYOffset: -0.45
+  hiddenMovementMultiplier: 0
+  logCoverDebug: 1
 --- !u!1 &1057208832
 GameObject:
   m_ObjectHideFlags: 0
@@ -874,6 +896,7 @@ MonoBehaviour:
   playerHealth: {fileID: 1033540825}
   playerShooter: {fileID: 1033540824}
   difficultyManager: {fileID: 1982503340}
+  csvLogger: {fileID: 0}
   sectionWidth: 20
   sectionLength: 30
   coverCount: 8
@@ -915,6 +938,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9537cd8c38f6424ab53ca824b799b63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  adaptiveDifficultyEnabled: 1
   currentDifficultyScore: 3
   minDifficultyScore: 1
   maxDifficultyScore: 10
@@ -957,7 +981,7 @@ MonoBehaviour:
   playerHealth: {fileID: 1033540825}
   difficultyManager: {fileID: 1982503340}
   sectionGenerator: {fileID: 1982503338}
-  adaptiveModeEnabled: 1
+  playerCoverController: {fileID: 1033540831}
 --- !u!1 &2012708215
 GameObject:
   m_ObjectHideFlags: 0
@@ -1131,6 +1155,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4104149566301356893, guid: be450ed4e57b1164998b559a15e49581, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1033540825}
+    - targetCorrespondingSourceObject: {fileID: 4104149566301356893, guid: be450ed4e57b1164998b559a15e49581, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1033540831}
   m_SourcePrefab: {fileID: 100100000, guid: be450ed4e57b1164998b559a15e49581, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
