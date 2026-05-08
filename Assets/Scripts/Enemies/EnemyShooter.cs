@@ -39,6 +39,10 @@ public class EnemyShooter : MonoBehaviour
     [Tooltip("Height offset for aiming at the player.")]
     public float playerAimHeight = 1.2f;
 
+    [Header("Cover Interaction")]
+    [Range(0f, 1f)]
+    public float peekDamageChance = 0.5f;
+
     [Header("Debug")]
     public bool drawDebugRay = true;
 
@@ -51,7 +55,8 @@ public class EnemyShooter : MonoBehaviour
         float newShotRange,
         float newShotRadius,
         float newShotSpread,
-        bool shootingEnabled
+        bool shootingEnabled,
+        float newPeekDamageChance
     )
     {
         player = playerTransform;
@@ -63,6 +68,7 @@ public class EnemyShooter : MonoBehaviour
         shotSpread = newShotSpread;
 
         canShoot = shootingEnabled;
+        peekDamageChance = Mathf.Clamp01(newPeekDamageChance);
     }
 
     private void Update()
@@ -128,7 +134,25 @@ public class EnemyShooter : MonoBehaviour
 
         PlayerHealth playerHealth = hit.collider.GetComponentInParent<PlayerHealth>();
 
-        if (playerHealth != null)
+        if (playerHealth == null)
+        {
+            return;
+        }
+
+        PlayerCoverController coverController = playerHealth.GetComponent<PlayerCoverController>();
+
+        if (coverController == null || !coverController.IsInCover)
+        {
+            playerHealth.TakeDamage(damage);
+            return;
+        }
+
+        if (!coverController.IsPeekingFromCover)
+        {
+            return;
+        }
+
+        if (Random.value <= peekDamageChance)
         {
             playerHealth.TakeDamage(damage);
         }

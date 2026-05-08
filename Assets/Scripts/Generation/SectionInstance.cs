@@ -1,15 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Represents one generated combat section.
-/// 
-/// This script tracks:
-/// - how many enemies are alive
-/// - whether the section is cleared
-/// - gameplay metrics for this section
-/// 
-/// Later, these metrics will be passed into the adaptive difficulty system.
-/// </summary>
 public class SectionInstance : MonoBehaviour
 {
     [Header("Section Info")]
@@ -27,108 +17,68 @@ public class SectionInstance : MonoBehaviour
 
     private PlayerHealth playerHealth;
     private DifficultyManager difficultyManager;
+    private CSVLogger csvLogger;
 
-    /// <summary>
-    /// Called by the SectionGenerator after spawning enemies.
-    /// </summary>
-    public void Setup(int newSectionIndex, int enemyCount, PlayerHealth player, DifficultyManager difficulty)
+    public void Setup(
+        int newSectionIndex,
+        int enemyCount,
+        int coverCount,
+        int shooterCount,
+        int chaserCount,
+        PlayerHealth player,
+        DifficultyManager difficulty,
+        CSVLogger logger)
     {
         difficultyManager = difficulty;
+        csvLogger = logger;
         sectionIndex = newSectionIndex;
 
         totalEnemies = enemyCount;
         enemiesAlive = enemyCount;
-
         sectionCleared = enemyCount <= 0;
 
         playerHealth = player;
 
         float startingHealth = 100f;
+        if (playerHealth != null) { startingHealth = playerHealth.GetCurrentHealth(); }
 
-        if (playerHealth != null)
-        {
-            startingHealth = playerHealth.GetCurrentHealth();
-        }
-
-        metrics.StartSection(sectionIndex, startingHealth, enemyCount);
+        metrics.StartSection(sectionIndex, startingHealth, enemyCount, coverCount, shooterCount, chaserCount);
 
         Debug.Log("Section " + sectionIndex + " started. Enemies: " + enemiesAlive);
     }
 
-    /// <summary>
-    /// Called by PlayerShooter whenever the player fires.
-    /// </summary>
-    public void RegisterShotFired()
-    {
-        if (sectionCleared)
-        {
-            return;
-        }
+    public void RegisterShotFired(){ if (sectionCleared) return; metrics.RecordShotFired(); }
+    public void RegisterShotHit(){ if (sectionCleared) return; metrics.RecordShotHit(); }
 
-        metrics.RecordShotFired();
-    }
-
-    /// <summary>
-    /// Called by PlayerShooter whenever the player hits an enemy.
-    /// </summary>
-    public void RegisterShotHit()
-    {
-        if (sectionCleared)
-        {
-            return;
-        }
-
-        metrics.RecordShotHit();
-    }
-
-    /// <summary>
-    /// Called by enemies when they die.
-    /// </summary>
     public void RegisterEnemyDeath(float enemyTimeToKill)
     {
         enemiesAlive--;
-
         enemiesAlive = Mathf.Max(enemiesAlive, 0);
-
         metrics.RecordEnemyKilled(enemyTimeToKill);
 
-        Debug.Log("Section " + sectionIndex + " enemy killed. Remaining: " + enemiesAlive);
-
-        if (enemiesAlive <= 0)
-        {
-            CompleteSection();
-        }
+        if (enemiesAlive <= 0) { CompleteSection(); }
     }
 
     private void CompleteSection()
     {
-        if (sectionCleared)
-        {
-            return;
-        }
-
+        if (sectionCleared) { return; }
         sectionCleared = true;
 
         float endingHealth = 100f;
-
-        if (playerHealth != null)
-        {
-            endingHealth = playerHealth.GetCurrentHealth();
-        }
-
+        if (playerHealth != null) { endingHealth = playerHealth.GetCurrentHealth(); }
         metrics.EndSection(endingHealth);
 
-        Debug.Log("Section " + sectionIndex + " cleared. Move to the end trigger.");
-        Debug.Log(metrics.GetDebugSummary());
-
+        DifficultyAnalysisResult analysisResult = null;
         if (difficultyManager != null)
         {
-            difficultyManager.AnalyseSectionPerformance(metrics);
+            analysisResult = difficultyManager.AnalyseSectionPerformance(metrics);
+        }
+
+        if (csvLogger != null && analysisResult != null)
+        {
+            csvLogger.LogSectionResult(metrics, analysisResult);
         }
     }
 
-    public bool CanProgress()
-    {
-        return sectionCleared;
-    }
+    public bool CanProgress(){ return sectionCleared; }
 }

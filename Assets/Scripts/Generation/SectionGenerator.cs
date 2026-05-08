@@ -32,6 +32,7 @@ public class SectionGenerator : MonoBehaviour
     public PlayerHealth playerHealth;
     public PlayerShooter playerShooter;
     public DifficultyManager difficultyManager;
+    public CSVLogger csvLogger;
 
     [Header("Section Size")]
     public float sectionWidth = 20f;
@@ -86,6 +87,11 @@ public class SectionGenerator : MonoBehaviour
         {
             difficultyManager = GetComponent<DifficultyManager>();
         }
+
+        if (csvLogger == null)
+        {
+            csvLogger = FindAnyObjectByType<CSVLogger>();
+        }
     }
 
     private void Start()
@@ -124,7 +130,8 @@ public class SectionGenerator : MonoBehaviour
                 2f,
                 30f,
                 0.12f,
-                0.32f,
+                0.35f,
+                0.35f,
                 coverCount,
                 coverSizeXRange.x,
                 coverSizeXRange.y,
@@ -158,9 +165,14 @@ public class SectionGenerator : MonoBehaviour
         GenerateWalls(sectionOrigin, sectionParent.transform);
         GenerateCover(sectionOrigin, sectionParent.transform);
 
-        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance);
+        int shooterCount = 0;
+        int chaserCount = 0;
 
-        sectionInstance.Setup(sectionIndex, spawnedEnemies, playerHealth, difficultyManager);
+        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance, out shooterCount, out chaserCount);
+
+        int generatedCoverCount = currentProfile != null ? currentProfile.coverCount : coverCount;
+
+        sectionInstance.Setup(sectionIndex, spawnedEnemies, generatedCoverCount, shooterCount, chaserCount, playerHealth, difficultyManager, csvLogger);
 
         GenerateEndTrigger(sectionOrigin, sectionParent.transform, sectionInstance);
 
@@ -235,70 +247,121 @@ public class SectionGenerator : MonoBehaviour
     {
         int generatedCoverCount = currentProfile != null ? currentProfile.coverCount : coverCount;
 
-        for (int i = 0; i < generatedCoverCount; i++)
+        int entranceCount = Mathf.Max(1, Mathf.RoundToInt(generatedCoverCount * 0.3f));
+        int midCount = Mathf.Max(1, Mathf.RoundToInt(generatedCoverCount * 0.35f));
+        int sideCount = Mathf.Max(1, generatedCoverCount - entranceCount - midCount);
+
+        int spawned = 0;
+
+        spawned += SpawnCoverInZone(sectionOrigin, parent, entranceCount, "Entrance");
+        spawned += SpawnCoverInZone(sectionOrigin, parent, midCount, "Mid");
+        spawned += SpawnCoverInZone(sectionOrigin, parent, sideCount, "Side");
+
+        while (spawned < generatedCoverCount)
         {
-            Vector3 coverPosition = GetRandomCoverPosition(sectionOrigin);
-
-            GameObject cover = Instantiate(coverPrefab, coverPosition, Quaternion.identity, parent);
-
-            cover.name = "Generated Cover";
-
-            float minSize = currentProfile != null ? currentProfile.coverMinSize : coverSizeXRange.x;
-            float maxSize = currentProfile != null ? currentProfile.coverMaxSize : coverSizeXRange.y;
-
-            float minHeight = currentProfile != null ? currentProfile.coverMinHeight : coverHeightRange.x;
-            float maxHeight = currentProfile != null ? currentProfile.coverMaxHeight : coverHeightRange.y;
-
-            float randomX = Random.Range(minSize, maxSize);
-            float randomZ = Random.Range(minSize, maxSize);
-            float randomHeight = Random.Range(minHeight, maxHeight);
-
-            cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
-
-            cover.transform.position = new Vector3(
-                coverPosition.x,
-                randomHeight / 2f,
-                coverPosition.z
-            );
+            if (TrySpawnCover(sectionOrigin, parent, "Mid"))
+            {
+                spawned++;
+            }
+            else
+            {
+                break;
+            }
         }
     }
 
-    private Vector3 GetRandomCoverPosition(Vector3 sectionOrigin)
+    private int SpawnCoverInZone(Vector3 sectionOrigin, Transform parent, int count, string zoneName)
+    {
+        int spawned = 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (TrySpawnCover(sectionOrigin, parent, zoneName))
+            {
+                spawned++;
+            }
+        }
+
+        return spawned;
+    }
+
+    private bool TrySpawnCover(Vector3 sectionOrigin, Transform parent, string zoneName)
+    {
+        Vector3 coverPosition;
+
+        if (!TryGetCoverPositionForZone(sectionOrigin, zoneName, out coverPosition))
+        {
+            return false;
+        }
+
+        GameObject cover = Instantiate(coverPrefab, coverPosition, Quaternion.identity, parent);
+        cover.name = "Generated Cover";
+
+        float minSize = currentProfile != null ? currentProfile.coverMinSize : coverSizeXRange.x;
+        float maxSize = currentProfile != null ? currentProfile.coverMaxSize : coverSizeXRange.y;
+        float minHeight = currentProfile != null ? currentProfile.coverMinHeight : coverHeightRange.x;
+        float maxHeight = currentProfile != null ? currentProfile.coverMaxHeight : coverHeightRange.y;
+
+        float randomX = Random.Range(minSize, maxSize);
+        float randomZ = Random.Range(minSize, maxSize);
+        float randomHeight = Random.Range(minHeight, maxHeight);
+
+        cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
+        cover.transform.position = new Vector3(coverPosition.x, randomHeight / 2f, coverPosition.z);
+
+        return true;
+    }
+
+    private bool TryGetCoverPositionForZone(Vector3 sectionOrigin, string zoneName, out Vector3 position)
     {
         float halfWidth = sectionWidth / 2f;
         float halfLength = sectionLength / 2f;
 
-        for (int attempt = 0; attempt < 50; attempt++)
+        for (int attempt = 0; attempt < 60; attempt++)
         {
-            float randomX = Random.Range(
-                sectionOrigin.x - halfWidth + edgePadding,
-                sectionOrigin.x + halfWidth - edgePadding
-            );
+            float randomX = 0f;
+            float randomZ = 0f;
 
-            float randomZ = Random.Range(
-                sectionOrigin.z - halfLength + edgePadding,
-                sectionOrigin.z + halfLength - edgePadding
-            );
-
-            Vector3 possiblePosition = new Vector3(randomX, 0f, randomZ);
-
-            // Keeps cover away from the section entrance.
-            Vector3 sectionEntrance = new Vector3(
-                sectionOrigin.x,
-                0f,
-                sectionOrigin.z - halfLength + 3f
-            );
-
-            float distanceFromSpawn = Vector3.Distance(sectionEntrance, possiblePosition);
-
-            if (distanceFromSpawn >= playerSpawnClearRadius)
+            if (zoneName == "Entrance")
             {
-                return possiblePosition;
+                randomX = Random.Range(sectionOrigin.x - halfWidth + edgePadding + 1f, sectionOrigin.x + halfWidth - edgePadding - 1f);
+                randomZ = Random.Range(sectionOrigin.z - halfLength + 4f, sectionOrigin.z - halfLength + 10f);
             }
+            else if (zoneName == "Mid")
+            {
+                randomX = Random.Range(sectionOrigin.x - halfWidth + edgePadding + 1f, sectionOrigin.x + halfWidth - edgePadding - 1f);
+                randomZ = Random.Range(sectionOrigin.z - 5f, sectionOrigin.z + 5f);
+            }
+            else
+            {
+                bool useLeftSide = Random.value < 0.5f;
+                float sideX = useLeftSide ? sectionOrigin.x - halfWidth + edgePadding + 1.5f : sectionOrigin.x + halfWidth - edgePadding - 1.5f;
+                randomX = Random.Range(sideX - 1.5f, sideX + 1.5f);
+                randomZ = Random.Range(sectionOrigin.z - halfLength + 6f, sectionOrigin.z + halfLength - 6f);
+            }
+
+            Vector3 candidate = new Vector3(randomX, 0f, randomZ);
+
+            // Keep a main path mostly open through the center of the section.
+            if (Mathf.Abs(candidate.x - sectionOrigin.x) < 1.2f)
+            {
+                continue;
+            }
+
+            bool overlapsExisting = Physics.CheckBox(candidate + Vector3.up * 1f, new Vector3(1.2f, 1.2f, 1.2f));
+            if (overlapsExisting)
+            {
+                continue;
+            }
+
+            position = candidate;
+            return true;
         }
 
-        return sectionOrigin;
+        position = sectionOrigin;
+        return false;
     }
+
     private void GenerateEndTrigger(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
     {
         float halfLength = sectionLength / 2f;
@@ -326,8 +389,11 @@ public class SectionGenerator : MonoBehaviour
         triggerScript.Setup(this, sectionInstance);
     }
 
-    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
+    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, out int shooterCount, out int chaserCount)
     {
+        shooterCount = 0;
+        chaserCount = 0;
+
         if (enemyPrefab == null || player == null)
         {
             Debug.LogWarning("Enemy prefab or player reference is missing on SectionGenerator.");
@@ -341,6 +407,15 @@ public class SectionGenerator : MonoBehaviour
         for (int i = 0; i < generatedEnemyCount; i++)
         {
             GeneratedEnemyRole enemyRole = GetEnemyRoleForSpawn(i, generatedEnemyCount);
+
+            if (enemyRole == GeneratedEnemyRole.StaticShooter)
+            {
+                shooterCount++;
+            }
+            else
+            {
+                chaserCount++;
+            }
 
             Vector3 enemyPosition = GetRandomEnemyPosition(sectionOrigin);
 
@@ -386,6 +461,8 @@ public class SectionGenerator : MonoBehaviour
                 float generatedShotRadius = currentProfile != null ? currentProfile.enemyShotRadius : 0.12f;
                 float generatedShotSpread = currentProfile != null ? currentProfile.enemyShotSpread : 0.32f;
 
+                float generatedPeekDamageChance = currentProfile != null ? currentProfile.peekDamageChance : 0.5f;
+
                 enemyShooter.Setup(
                     player,
                     generatedShotDamage,
@@ -393,7 +470,8 @@ public class SectionGenerator : MonoBehaviour
                     generatedShotRange,
                     generatedShotRadius,
                     generatedShotSpread,
-                    generatedCanShoot
+                    generatedCanShoot,
+                    generatedPeekDamageChance
                 );
             }
 
