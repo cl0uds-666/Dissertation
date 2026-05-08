@@ -32,6 +32,7 @@ public class SectionGenerator : MonoBehaviour
     public PlayerHealth playerHealth;
     public PlayerShooter playerShooter;
     public DifficultyManager difficultyManager;
+    public CSVLogger csvLogger;
 
     [Header("Section Size")]
     public float sectionWidth = 20f;
@@ -85,6 +86,11 @@ public class SectionGenerator : MonoBehaviour
         if (difficultyManager == null)
         {
             difficultyManager = GetComponent<DifficultyManager>();
+        }
+
+        if (csvLogger == null)
+        {
+            csvLogger = FindAnyObjectByType<CSVLogger>();
         }
     }
 
@@ -158,9 +164,14 @@ public class SectionGenerator : MonoBehaviour
         GenerateWalls(sectionOrigin, sectionParent.transform);
         GenerateCover(sectionOrigin, sectionParent.transform);
 
-        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance);
+        int shooterCount = 0;
+        int chaserCount = 0;
 
-        sectionInstance.Setup(sectionIndex, spawnedEnemies, playerHealth, difficultyManager);
+        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance, out shooterCount, out chaserCount);
+
+        int generatedCoverCount = currentProfile != null ? currentProfile.coverCount : coverCount;
+
+        sectionInstance.Setup(sectionIndex, spawnedEnemies, generatedCoverCount, shooterCount, chaserCount, playerHealth, difficultyManager, csvLogger);
 
         GenerateEndTrigger(sectionOrigin, sectionParent.transform, sectionInstance);
 
@@ -326,8 +337,11 @@ public class SectionGenerator : MonoBehaviour
         triggerScript.Setup(this, sectionInstance);
     }
 
-    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
+    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, out int shooterCount, out int chaserCount)
     {
+        shooterCount = 0;
+        chaserCount = 0;
+
         if (enemyPrefab == null || player == null)
         {
             Debug.LogWarning("Enemy prefab or player reference is missing on SectionGenerator.");
@@ -341,6 +355,15 @@ public class SectionGenerator : MonoBehaviour
         for (int i = 0; i < generatedEnemyCount; i++)
         {
             GeneratedEnemyRole enemyRole = GetEnemyRoleForSpawn(i, generatedEnemyCount);
+
+            if (enemyRole == GeneratedEnemyRole.StaticShooter)
+            {
+                shooterCount++;
+            }
+            else
+            {
+                chaserCount++;
+            }
 
             Vector3 enemyPosition = GetRandomEnemyPosition(sectionOrigin);
 
