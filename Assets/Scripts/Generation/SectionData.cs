@@ -1,16 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class SectionData : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public List<Vector3> sidePatrolPoints = new List<Vector3>();
+    public List<Vector3> coverPoints = new List<Vector3>();
+    public Vector3 blockerControlPoint;
+    public Vector3 sectionFrontPoint;
 }
