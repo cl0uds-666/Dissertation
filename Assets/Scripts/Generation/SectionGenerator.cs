@@ -334,6 +334,7 @@ public class SectionGenerator : MonoBehaviour
                     GameObject cover = Instantiate(coverPrefab, center, Quaternion.identity, parent);
                     cover.name = isLeft ? "Side Lane Cover Left" : "Side Lane Cover Right";
                     cover.transform.localScale = new Vector3(sideCoverSegmentWidth, currentProfile.sideCoverHeight, segmentLength);
+                    ExcludeCoverFromNavMesh(cover);
                     spawned++;
                 }
             }
@@ -382,8 +383,22 @@ public class SectionGenerator : MonoBehaviour
 
         cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
         cover.transform.position = new Vector3(coverPosition.x, randomHeight / 2f, coverPosition.z);
+        ExcludeCoverFromNavMesh(cover);
 
         return true;
+    }
+
+
+    private void ExcludeCoverFromNavMesh(GameObject coverObject)
+    {
+        NavMeshModifier navMeshModifier = coverObject.GetComponent<NavMeshModifier>();
+
+        if (navMeshModifier == null)
+        {
+            navMeshModifier = coverObject.AddComponent<NavMeshModifier>();
+        }
+
+        navMeshModifier.ignoreFromBuild = true;
     }
 
     private bool TryGetCoverPositionForZone(Vector3 sectionOrigin, string zoneName, out Vector3 position)
@@ -627,11 +642,11 @@ public class SectionGenerator : MonoBehaviour
                 sectionOrigin.z + halfLength - edgePadding
             );
 
-            Vector3 possiblePosition = new Vector3(randomX, 1f, randomZ);
+            Vector3 possiblePosition = new Vector3(randomX, 2f, randomZ);
 
             Vector3 sectionEntrance = new Vector3(
                 sectionOrigin.x,
-                1f,
+                2f,
                 sectionOrigin.z - halfLength + 3f
             );
 
@@ -658,7 +673,7 @@ public class SectionGenerator : MonoBehaviour
 
         Debug.LogWarning("Could not find valid enemy spawn position. Falling back to section centre.");
 
-        return new Vector3(sectionOrigin.x, 1f, sectionOrigin.z);
+        return new Vector3(sectionOrigin.x, 2f, sectionOrigin.z);
     }
 
     private List<Vector3> GeneratePatrolPoints(Vector3 sectionOrigin)
