@@ -1,101 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Stores gameplay data collected during one generated combat section.
-/// 
-/// This data is used by the adaptive difficulty system and CSV logging.
-/// </summary>
 [System.Serializable]
 public class SectionMetrics
 {
-    [Header("Section Info")]
-    public int sectionIndex;
-
-    [Header("Section Composition")]
-    public int coverCount;
-    public int shooterCount;
-    public int chaserCount;
-
-    [Header("Time Metrics")]
-    public float sectionStartTime;
-    public float sectionEndTime;
-    public float completionTime;
-
-    [Header("Health Metrics")]
-    public float playerHealthAtStart;
-    public float playerHealthAtEnd;
-    public float playerHealthLost;
-
-    [Header("Shooting Metrics")]
-    public int shotsFired;
-    public int shotsHit;
-    public float accuracyPercent;
-
-    [Header("Enemy Metrics")]
-    public int enemiesSpawned;
-    public int enemiesKilled;
-    public List<float> enemyTimeToKillValues = new List<float>();
-    public float averageEnemyTimeToKill;
-
-    public void StartSection(
-        int newSectionIndex,
-        float currentPlayerHealth,
-        int enemyCount,
-        int newCoverCount,
-        int newShooterCount,
-        int newChaserCount)
-    {
-        sectionIndex = newSectionIndex;
-
-        coverCount = newCoverCount;
-        shooterCount = newShooterCount;
-        chaserCount = newChaserCount;
-
-        sectionStartTime = Time.time;
-        sectionEndTime = 0f;
-        completionTime = 0f;
-
-        playerHealthAtStart = currentPlayerHealth;
-        playerHealthAtEnd = currentPlayerHealth;
-        playerHealthLost = 0f;
-
-        shotsFired = 0;
-        shotsHit = 0;
-        accuracyPercent = 0f;
-
-        enemiesSpawned = enemyCount;
-        enemiesKilled = 0;
-
-        enemyTimeToKillValues.Clear();
-        averageEnemyTimeToKill = 0f;
-    }
-
-    public void RecordShotFired(){ shotsFired++; RecalculateAccuracy(); }
-    public void RecordShotHit(){ shotsHit++; RecalculateAccuracy(); }
-    public void RecordEnemyKilled(float timeToKill){ enemiesKilled++; enemyTimeToKillValues.Add(timeToKill); RecalculateAverageTTK(); }
-
-    public void EndSection(float currentPlayerHealth)
-    {
-        sectionEndTime = Time.time;
-        completionTime = sectionEndTime - sectionStartTime;
-        playerHealthAtEnd = currentPlayerHealth;
-        playerHealthLost = playerHealthAtStart - playerHealthAtEnd;
-        RecalculateAccuracy();
-        RecalculateAverageTTK();
-    }
-
-    private void RecalculateAccuracy()
-    {
-        if (shotsFired <= 0) { accuracyPercent = 0f; return; }
-        accuracyPercent = ((float)shotsHit / shotsFired) * 100f;
-    }
-
-    private void RecalculateAverageTTK()
-    {
-        if (enemyTimeToKillValues.Count <= 0) { averageEnemyTimeToKill = 0f; return; }
-        float total = 0f;
-        for (int i = 0; i < enemyTimeToKillValues.Count; i++) { total += enemyTimeToKillValues[i]; }
-        averageEnemyTimeToKill = total / enemyTimeToKillValues.Count;
-    }
+    public int sectionIndex,coverCount,coverShooterCount,sideShooterCount,suppressorCount,chaserCount,rusherCount,blockerCount;
+    public float sectionStartTime,sectionEndTime,completionTime,playerHealthAtStart,playerHealthAtEnd,playerHealthLost,accuracyPercent,averageEnemyTimeToKill;
+    public int shotsFired,shotsHit,enemiesSpawned,enemiesKilled; public List<float> enemyTimeToKillValues = new List<float>();
+    public void StartSection(int idx,float hp,int e,int cover,int coverShooter,int side,int sup,int chaser,int rusher,int blocker){ sectionIndex=idx; playerHealthAtStart=hp; playerHealthAtEnd=hp; enemiesSpawned=e; enemiesKilled=0; coverCount=cover; coverShooterCount=coverShooter; sideShooterCount=side; suppressorCount=sup; chaserCount=chaser; rusherCount=rusher; blockerCount=blocker; sectionStartTime=Time.time; shotsFired=0; shotsHit=0; enemyTimeToKillValues.Clear(); }
+    public void RecordShotFired(){shotsFired++;RecalculateAccuracy();} public void RecordShotHit(){shotsHit++;RecalculateAccuracy();} public void RecordEnemyKilled(float ttk){enemiesKilled++;enemyTimeToKillValues.Add(ttk);RecalculateAverageTTK();}
+    public void EndSection(float hp){ sectionEndTime=Time.time; completionTime=sectionEndTime-sectionStartTime; playerHealthAtEnd=hp; playerHealthLost=playerHealthAtStart-playerHealthAtEnd; RecalculateAccuracy(); RecalculateAverageTTK(); }
+    private void RecalculateAccuracy(){ accuracyPercent=shotsFired<=0?0f:((float)shotsHit/shotsFired)*100f; }
+    private void RecalculateAverageTTK(){ if(enemyTimeToKillValues.Count==0){averageEnemyTimeToKill=0f;return;} float t=0; foreach(float v in enemyTimeToKillValues)t+=v; averageEnemyTimeToKill=t/enemyTimeToKillValues.Count; }
 }

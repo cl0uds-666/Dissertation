@@ -43,7 +43,7 @@ public class CSVLogger : MonoBehaviour
 
         string header =
             "SectionIndex,DifficultyBefore,DifficultyAfter,FlowScore,FlowResult," +
-            "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
+            "EnemyCount,CoverShooterCount,SideShooterCount,SuppressorCount,ChaserCount,RusherCount,BlockerCount,CoverCount," +
             "CompletionTime,HealthStart,HealthEnd,HealthLost," +
             "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK";
 
@@ -82,8 +82,12 @@ public class CSVLogger : MonoBehaviour
         row.Append(SanitizeCsvText(analysis.flowResult)).Append(',');
 
         row.Append(metrics.enemiesSpawned).Append(',');
-        row.Append(metrics.shooterCount).Append(',');
+        row.Append(metrics.coverShooterCount).Append(',');
+        row.Append(metrics.sideShooterCount).Append(',');
+        row.Append(metrics.suppressorCount).Append(',');
         row.Append(metrics.chaserCount).Append(',');
+        row.Append(metrics.rusherCount).Append(',');
+        row.Append(metrics.blockerCount).Append(',');
         row.Append(metrics.coverCount).Append(',');
 
         row.Append(metrics.completionTime.ToString("F2")).Append(',');
