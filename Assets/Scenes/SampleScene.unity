@@ -570,10 +570,15 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   faceOffset: 0.65
+  lowCoverMaxHeight: 1.35
+  peekOverCameraHeight: 0
+  hiddenCameraHeight: -0.45
+  sidePeekOffset: 0.65
+  overPeekHeightOffset: 0
   hiddenScaleY: 0.55
   playerCameraTransform: {fileID: 330585546}
-  hiddenCameraYOffset: -0.45
   hiddenMovementMultiplier: 0
+  coverSlideSpeed: 4
   logCoverDebug: 1
 --- !u!1 &1057208832
 GameObject:
@@ -903,6 +908,8 @@ MonoBehaviour:
   coverSizeXRange: {x: 1.5, y: 4}
   coverSizeZRange: {x: 1.5, y: 4}
   coverHeightRange: {x: 1, y: 2}
+  sideCoverLaneOffset: 1.8
+  sideCoverSegmentWidth: 1
   enemyCount: 3
   enemyMoveSpeed: 3
   enemySpawnClearRadius: 6

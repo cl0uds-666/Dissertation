@@ -1,53 +1,105 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Basic enemy movement for the dissertation prototype.
-/// 
-/// Movement can be disabled, allowing the same enemy prefab to be used
-/// as either a moving chaser or a static shooter.
+///
+/// Movement uses NavMeshAgent so enemies can path around generated cover.
+/// Shooting is still handled by EnemyShooter.
 /// </summary>
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(NavMeshAgent))]
 public class EnemyAI : MonoBehaviour
 {
+    public enum MovementMode
+    {
+        Stationary,
+        Patrol,
+        ChasePlayer
+    }
+
     [Header("Target")]
     public Transform player;
 
     [Header("Movement")]
-    public bool canMove = true;
-
+    public MovementMode movementMode = MovementMode.Stationary;
     public float moveSpeed = 3f;
 
     [Tooltip("Enemy stops moving when this close to the player.")]
     public float stopDistance = 1.5f;
 
+    [Tooltip("How close the enemy must get before moving to the next patrol point.")]
+    public float patrolPointReachedDistance = 0.8f;
+
     [Header("Damage")]
     public float contactDamage = 10f;
     public float damageCooldown = 1f;
 
-    private Rigidbody rb;
-
+    private NavMeshAgent navMeshAgent;
+    private readonly List<Vector3> patrolPoints = new List<Vector3>();
+    private int currentPatrolIndex;
     private float nextDamageTime;
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-
-        // Stops the capsule from tipping over.
-        rb.freezeRotation = true;
+        navMeshAgent = GetComponent<NavMeshAgent>();
+        navMeshAgent.speed = moveSpeed;
+        navMeshAgent.stoppingDistance = stopDistance;
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
         if (player == null)
         {
             return;
         }
 
-        FacePlayer();
-
-        if (canMove)
+        switch (movementMode)
         {
-            MoveTowardsPlayer();
+            case MovementMode.Stationary:
+                navMeshAgent.isStopped = true;
+                FacePlayer();
+                break;
+
+            case MovementMode.Patrol:
+                UpdatePatrolMovement();
+                break;
+
+            case MovementMode.ChasePlayer:
+                UpdateChaseMovement();
+                break;
+        }
+    }
+
+    private void UpdateChaseMovement()
+    {
+        navMeshAgent.isStopped = false;
+        navMeshAgent.stoppingDistance = stopDistance;
+        navMeshAgent.SetDestination(player.position);
+    }
+
+    private void UpdatePatrolMovement()
+    {
+        if (patrolPoints.Count == 0)
+        {
+            navMeshAgent.isStopped = true;
+            FacePlayer();
+            return;
+        }
+
+        navMeshAgent.isStopped = false;
+        navMeshAgent.stoppingDistance = 0f;
+
+        if (!navMeshAgent.hasPath)
+        {
+            navMeshAgent.SetDestination(patrolPoints[currentPatrolIndex]);
+            return;
+        }
+
+        if (navMeshAgent.remainingDistance <= patrolPointReachedDistance)
+        {
+            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Count;
+            navMeshAgent.SetDestination(patrolPoints[currentPatrolIndex]);
         }
     }
 
@@ -64,35 +116,37 @@ public class EnemyAI : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(directionToPlayer.normalized);
     }
 
-    private void MoveTowardsPlayer()
-    {
-        Vector3 directionToPlayer = player.position - transform.position;
-        directionToPlayer.y = 0f;
-
-        float distanceToPlayer = directionToPlayer.magnitude;
-
-        if (distanceToPlayer <= stopDistance)
-        {
-            return;
-        }
-
-        Vector3 moveDirection = directionToPlayer.normalized;
-
-        Vector3 newPosition = rb.position + moveDirection * moveSpeed * Time.fixedDeltaTime;
-
-        rb.MovePosition(newPosition);
-    }
-
-    public void Setup(Transform playerTransform, float speed, bool movementEnabled)
+    public void Setup(Transform playerTransform, float speed, MovementMode mode, List<Vector3> newPatrolPoints = null)
     {
         player = playerTransform;
         moveSpeed = speed;
-        canMove = movementEnabled;
+        movementMode = mode;
+
+        navMeshAgent.speed = moveSpeed;
+        navMeshAgent.stoppingDistance = stopDistance;
+
+        patrolPoints.Clear();
+
+        if (newPatrolPoints != null)
+        {
+            patrolPoints.AddRange(newPatrolPoints);
+        }
+
+        currentPatrolIndex = 0;
+
+        if (movementMode == MovementMode.Patrol && patrolPoints.Count > 0)
+        {
+            navMeshAgent.SetDestination(patrolPoints[currentPatrolIndex]);
+        }
+        else
+        {
+            navMeshAgent.ResetPath();
+        }
     }
 
     private void OnCollisionStay(Collision collision)
     {
-        if (!canMove)
+        if (movementMode == MovementMode.Stationary)
         {
             return;
         }

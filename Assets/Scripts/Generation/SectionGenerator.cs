@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using Unity.AI.Navigation;
+using UnityEngine.AI;
 using UnityEngine;
 
 /// <summary>
@@ -17,6 +20,7 @@ public class SectionGenerator : MonoBehaviour
     private enum GeneratedEnemyRole
     {
         StaticShooter,
+        Patrol,
         Chaser
     }
 
@@ -175,10 +179,17 @@ public class SectionGenerator : MonoBehaviour
         GenerateWalls(sectionOrigin, sectionParent.transform);
         GenerateCover(sectionOrigin, sectionParent.transform);
 
+        NavMeshSurface navMeshSurface = sectionParent.AddComponent<NavMeshSurface>();
+        navMeshSurface.collectObjects = CollectObjects.Children;
+        navMeshSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+        navMeshSurface.BuildNavMesh();
+
+        List<Vector3> patrolPoints = GeneratePatrolPoints(sectionOrigin);
+
         int shooterCount = 0;
         int chaserCount = 0;
 
-        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance, out shooterCount, out chaserCount);
+        int spawnedEnemies = GenerateEnemies(sectionOrigin, sectionParent.transform, sectionInstance, patrolPoints, out shooterCount, out chaserCount);
 
         int generatedCoverCount = currentProfile != null ? currentProfile.coverCount : coverCount;
 
@@ -323,6 +334,7 @@ public class SectionGenerator : MonoBehaviour
                     GameObject cover = Instantiate(coverPrefab, center, Quaternion.identity, parent);
                     cover.name = isLeft ? "Side Lane Cover Left" : "Side Lane Cover Right";
                     cover.transform.localScale = new Vector3(sideCoverSegmentWidth, currentProfile.sideCoverHeight, segmentLength);
+                    ExcludeCoverFromNavMesh(cover);
                     spawned++;
                 }
             }
@@ -371,8 +383,33 @@ public class SectionGenerator : MonoBehaviour
 
         cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
         cover.transform.position = new Vector3(coverPosition.x, randomHeight / 2f, coverPosition.z);
+        ExcludeCoverFromNavMesh(cover);
 
         return true;
+    }
+
+
+    private void ExcludeCoverFromNavMesh(GameObject coverObject)
+    {
+        NavMeshModifier navMeshModifier = coverObject.GetComponent<NavMeshModifier>();
+
+        if (navMeshModifier == null)
+        {
+            navMeshModifier = coverObject.AddComponent<NavMeshModifier>();
+        }
+
+        navMeshModifier.ignoreFromBuild = true;
+
+        // Cover should block navigation at runtime so agents route around it.
+        NavMeshObstacle navMeshObstacle = coverObject.GetComponent<NavMeshObstacle>();
+
+        if (navMeshObstacle == null)
+        {
+            navMeshObstacle = coverObject.AddComponent<NavMeshObstacle>();
+        }
+
+        navMeshObstacle.carving = true;
+        navMeshObstacle.carveOnlyStationary = true;
     }
 
     private bool TryGetCoverPositionForZone(Vector3 sectionOrigin, string zoneName, out Vector3 position)
@@ -452,7 +489,7 @@ public class SectionGenerator : MonoBehaviour
         triggerScript.Setup(this, sectionInstance);
     }
 
-    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, out int shooterCount, out int chaserCount)
+    private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, List<Vector3> sectionPatrolPoints, out int shooterCount, out int chaserCount)
     {
         shooterCount = 0;
         chaserCount = 0;
@@ -471,7 +508,7 @@ public class SectionGenerator : MonoBehaviour
         {
             GeneratedEnemyRole enemyRole = GetEnemyRoleForSpawn(i, generatedEnemyCount);
 
-            if (enemyRole == GeneratedEnemyRole.StaticShooter)
+            if (enemyRole == GeneratedEnemyRole.StaticShooter || enemyRole == GeneratedEnemyRole.Patrol)
             {
                 shooterCount++;
             }
@@ -492,9 +529,20 @@ public class SectionGenerator : MonoBehaviour
             {
                 float generatedEnemySpeed = currentProfile != null ? currentProfile.enemyMoveSpeed : enemyMoveSpeed;
 
-                bool generatedCanMove = enemyRole == GeneratedEnemyRole.Chaser;
+                EnemyAI.MovementMode movementMode = EnemyAI.MovementMode.Stationary;
 
-                enemyAI.Setup(player, generatedEnemySpeed, generatedCanMove);
+                if (enemyRole == GeneratedEnemyRole.Chaser)
+                {
+                    movementMode = EnemyAI.MovementMode.ChasePlayer;
+                }
+                else if (enemyRole == GeneratedEnemyRole.Patrol)
+                {
+                    movementMode = EnemyAI.MovementMode.Patrol;
+                }
+
+                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol ? sectionPatrolPoints : null;
+
+                enemyAI.Setup(player, generatedEnemySpeed, movementMode, patrolPointsForEnemy);
 
                 // Reuse the current difficulty damage value for melee/contact damage.
                 if (currentProfile != null)
@@ -516,7 +564,7 @@ public class SectionGenerator : MonoBehaviour
 
             if (enemyShooter != null)
             {
-                bool generatedCanShoot = enemyRole == GeneratedEnemyRole.StaticShooter;
+                bool generatedCanShoot = enemyRole != GeneratedEnemyRole.Chaser;
 
                 float generatedShotDamage = currentProfile != null ? currentProfile.enemyShotDamage : 7f;
                 float generatedFireCooldown = currentProfile != null ? currentProfile.enemyFireCooldown : 2f;
@@ -573,9 +621,16 @@ public class SectionGenerator : MonoBehaviour
 
         chaserCount = Mathf.Clamp(chaserCount, 0, totalEnemies);
 
+        int patrolCount = Mathf.Clamp(totalEnemies - chaserCount - 1, 0, totalEnemies);
+
         if (enemyIndex < chaserCount)
         {
             return GeneratedEnemyRole.Chaser;
+        }
+
+        if (enemyIndex < chaserCount + patrolCount)
+        {
+            return GeneratedEnemyRole.Patrol;
         }
 
         return GeneratedEnemyRole.StaticShooter;
@@ -598,11 +653,11 @@ public class SectionGenerator : MonoBehaviour
                 sectionOrigin.z + halfLength - edgePadding
             );
 
-            Vector3 possiblePosition = new Vector3(randomX, 1f, randomZ);
+            Vector3 possiblePosition = new Vector3(randomX, 2f, randomZ);
 
             Vector3 sectionEntrance = new Vector3(
                 sectionOrigin.x,
-                1f,
+                2f,
                 sectionOrigin.z - halfLength + 3f
             );
 
@@ -629,10 +684,64 @@ public class SectionGenerator : MonoBehaviour
 
         Debug.LogWarning("Could not find valid enemy spawn position. Falling back to section centre.");
 
-        return new Vector3(sectionOrigin.x, 1f, sectionOrigin.z);
+        return new Vector3(sectionOrigin.x, 2f, sectionOrigin.z);
     }
 
-   
+    private List<Vector3> GeneratePatrolPoints(Vector3 sectionOrigin)
+    {
+        List<Vector3> points = new List<Vector3>();
+
+        int pointCount = Random.Range(2, 5);
+
+        for (int i = 0; i < pointCount; i++)
+        {
+            if (TryGetPatrolPoint(sectionOrigin, out Vector3 patrolPoint, i % 2 == 0))
+            {
+                points.Add(patrolPoint);
+            }
+        }
+
+        return points;
+    }
+
+    private bool TryGetPatrolPoint(Vector3 sectionOrigin, out Vector3 patrolPoint, bool preferSidePoint)
+    {
+        float halfWidth = sectionWidth / 2f;
+        float halfLength = sectionLength / 2f;
+
+        for (int attempt = 0; attempt < 50; attempt++)
+        {
+            float randomX;
+
+            if (preferSidePoint)
+            {
+                bool left = Random.value < 0.5f;
+                float sideX = left ? sectionOrigin.x - halfWidth + edgePadding + 2f : sectionOrigin.x + halfWidth - edgePadding - 2f;
+                randomX = Random.Range(sideX - 1f, sideX + 1f);
+            }
+            else
+            {
+                randomX = Random.Range(sectionOrigin.x - halfWidth + edgePadding, sectionOrigin.x + halfWidth - edgePadding);
+            }
+
+            float randomZ = Random.Range(sectionOrigin.z - halfLength + edgePadding, sectionOrigin.z + halfLength - edgePadding);
+
+            Vector3 candidate = new Vector3(randomX, 1f, randomZ);
+
+            bool blocked = Physics.CheckSphere(candidate, 0.8f, enemySpawnBlockingLayers);
+            if (blocked)
+            {
+                continue;
+            }
+
+            patrolPoint = candidate;
+            return true;
+        }
+
+        patrolPoint = sectionOrigin + Vector3.up;
+        return false;
+    }
+
     private void CleanupOldSections()
     {
         if (transform.childCount <= maxSectionsKept)
