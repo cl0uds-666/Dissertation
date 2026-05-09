@@ -17,6 +17,8 @@ GameObject:
   - component: {fileID: 4718227317866073962}
   - component: {fileID: -7202749201239487739}
   - component: {fileID: 3458918587970628107}
+  - component: {fileID: -6983508767868773381}
+  - component: {fileID: 7499363230790156768}
   m_Layer: 0
   m_Name: Enemy
   m_TagString: Untagged
@@ -219,3 +221,37 @@ NavMeshAgent:
   m_BaseOffset: 0.95
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &-6983508767868773381
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8566182947197312521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1487b25df23c1b5439adadb95c2dca33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  player: {fileID: 0}
+  visionRange: 10
+  visionAngle: 45
+  eyeHeight: 0.6
+  obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 64
+--- !u!114 &7499363230790156768
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8566182947197312521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fd3a2f37d3d3d48a06c5cee6ea0f8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  radialSegments: 20
+  cannotSeeColor: {r: 0, g: 1, b: 0, a: 0.2}
+  canSeeColor: {r: 1, g: 0, b: 0, a: 0.25}
