@@ -45,6 +45,10 @@ public class SectionGenerator : MonoBehaviour
     public Vector2 coverSizeZRange = new Vector2(1.5f, 4f);
     public Vector2 coverHeightRange = new Vector2(1f, 2f);
 
+    [Header("Side Cover Lane Generation")]
+    public float sideCoverLaneOffset = 1.8f;
+    public float sideCoverSegmentWidth = 1.0f;
+
     [Header("Enemy Settings")]
     public int enemyCount = 3;
     public float enemyMoveSpeed = 3f;
@@ -136,7 +140,13 @@ public class SectionGenerator : MonoBehaviour
                 coverSizeXRange.x,
                 coverSizeXRange.y,
                 coverHeightRange.x,
-                coverHeightRange.y
+                coverHeightRange.y,
+                true,
+                0.7f,
+                1.0f,
+                2.5f,
+                1.4f,
+                2.4f
             );
         }
 
@@ -247,11 +257,12 @@ public class SectionGenerator : MonoBehaviour
     {
         int generatedCoverCount = currentProfile != null ? currentProfile.coverCount : coverCount;
 
+        int spawned = 0;
+        spawned += GenerateSideCoverLanes(sectionOrigin, parent);
+
         int entranceCount = Mathf.Max(1, Mathf.RoundToInt(generatedCoverCount * 0.3f));
         int midCount = Mathf.Max(1, Mathf.RoundToInt(generatedCoverCount * 0.35f));
         int sideCount = Mathf.Max(1, generatedCoverCount - entranceCount - midCount);
-
-        int spawned = 0;
 
         spawned += SpawnCoverInZone(sectionOrigin, parent, entranceCount, "Entrance");
         spawned += SpawnCoverInZone(sectionOrigin, parent, midCount, "Mid");
@@ -270,6 +281,58 @@ public class SectionGenerator : MonoBehaviour
         }
     }
 
+
+    private int GenerateSideCoverLanes(Vector3 sectionOrigin, Transform parent)
+    {
+        if (currentProfile == null || !currentProfile.sideCoverEnabled)
+        {
+            return 0;
+        }
+
+        int spawned = 0;
+        spawned += GenerateSingleSideLane(sectionOrigin, parent, true);
+        spawned += GenerateSingleSideLane(sectionOrigin, parent, false);
+        return spawned;
+    }
+
+    private int GenerateSingleSideLane(Vector3 sectionOrigin, Transform parent, bool isLeft)
+    {
+        float halfWidth = sectionWidth / 2f;
+        float halfLength = sectionLength / 2f;
+
+        float laneX = isLeft
+            ? sectionOrigin.x - halfWidth + edgePadding + sideCoverLaneOffset
+            : sectionOrigin.x + halfWidth - edgePadding - sideCoverLaneOffset;
+
+        float currentZ = sectionOrigin.z - halfLength + 3f;
+        float zEnd = sectionOrigin.z + halfLength - 3f;
+
+        int spawned = 0;
+
+        while (currentZ < zEnd)
+        {
+            float segmentLength = Mathf.Max(0.5f, currentProfile.sideCoverSegmentLength);
+            bool placeSegment = Random.value <= currentProfile.sideCoverContinuity;
+
+            if (placeSegment)
+            {
+                Vector3 center = new Vector3(laneX, currentProfile.sideCoverHeight * 0.5f, currentZ + segmentLength * 0.5f);
+
+                if (!Physics.CheckBox(center, new Vector3(sideCoverSegmentWidth * 0.5f, currentProfile.sideCoverHeight * 0.5f, segmentLength * 0.5f)))
+                {
+                    GameObject cover = Instantiate(coverPrefab, center, Quaternion.identity, parent);
+                    cover.name = isLeft ? "Side Lane Cover Left" : "Side Lane Cover Right";
+                    cover.transform.localScale = new Vector3(sideCoverSegmentWidth, currentProfile.sideCoverHeight, segmentLength);
+                    spawned++;
+                }
+            }
+
+            float gap = Random.Range(currentProfile.sideCoverGapMin, currentProfile.sideCoverGapMax);
+            currentZ += segmentLength + gap;
+        }
+
+        return spawned;
+    }
     private int SpawnCoverInZone(Vector3 sectionOrigin, Transform parent, int count, string zoneName)
     {
         int spawned = 0;
