@@ -11,6 +11,7 @@ public class SectionGenerator : MonoBehaviour
     public float sectionWidth = 20f, sectionLength = 30f; public int coverCount = 8; public Vector2 coverSizeXRange = new Vector2(1.5f, 4f), coverHeightRange = new Vector2(1f, 2f);
     public int enemyCount = 3; public float edgePadding = 3f; public int sectionsToSpawnAtStart = 1; public int maxSectionsKept = 4;
     private int nextSectionIndex; private DifficultyProfile currentProfile;
+    private SectionInstance currentActiveSection;
 
     void Start(){ for(int i=0;i<sectionsToSpawnAtStart;i++) SpawnNextSection(); }
     public void SpawnNextSection(){ currentProfile = difficultyManager != null ? difficultyManager.GetCurrentProfile() : DifficultyProfile.CreateDefault(); Vector3 o=new Vector3(0,0,nextSectionIndex*sectionLength); GenerateSection(o,nextSectionIndex++); CleanupOldSections(); }
@@ -25,6 +26,7 @@ public class SectionGenerator : MonoBehaviour
         int spawned = GenerateEnemies(origin,parent.transform,instance,data, ref coverShooter,ref side,ref sup,ref chase,ref rush,ref block);
         instance.Setup(index, spawned, currentProfile.coverCount, coverShooter, side, sup, chase, rush, block, playerHealth, difficultyManager, csvLogger);
         GenerateEndTrigger(origin,parent.transform,instance); if (playerShooter!=null) playerShooter.SetCurrentSection(instance);
+        currentActiveSection = instance;
     }
 
     private int GenerateEnemies(Vector3 origin, Transform parent, SectionInstance section, SectionData data, ref int coverShooterCount, ref int sideShooterCount, ref int suppressorCount, ref int chaserCount, ref int rusherCount, ref int blockerCount)
@@ -55,4 +57,10 @@ public class SectionGenerator : MonoBehaviour
     private Vector3 GetRandomPoint(Vector3 o){ float hw=sectionWidth/2f; float hl=sectionLength/2f; return new Vector3(Random.Range(o.x-hw+edgePadding,o.x+hw-edgePadding),1f,Random.Range(o.z-hl+edgePadding,o.z+hl-edgePadding)); }
     private void GenerateEndTrigger(Vector3 o,Transform p,SectionInstance i){ var t=new GameObject("Section End Trigger"); t.transform.SetParent(p); t.transform.position=new Vector3(o.x,1f,o.z+sectionLength/2f-2f); t.transform.localScale=new Vector3(sectionWidth-2f,2f,2f); var bc=t.AddComponent<BoxCollider>(); bc.isTrigger=true; t.AddComponent<SectionEndTrigger>().Setup(this,i); }
     private void CleanupOldSections(){ while(transform.childCount>maxSectionsKept) Destroy(transform.GetChild(0).gameObject); }
+
+    public SectionInstance GetCurrentActiveSection()
+    {
+        return currentActiveSection;
+    }
 }
+
