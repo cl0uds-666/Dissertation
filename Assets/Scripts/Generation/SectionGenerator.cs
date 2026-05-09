@@ -560,6 +560,13 @@ public class SectionGenerator : MonoBehaviour
                 enemyHealth.Setup(sectionInstance, generatedEnemyHealth);
             }
 
+            EnemyLineOfSight enemyLineOfSight = enemy.GetComponent<EnemyLineOfSight>();
+
+            if (enemyLineOfSight != null)
+            {
+                enemyLineOfSight.Setup(player);
+            }
+
             EnemyShooter enemyShooter = enemy.GetComponent<EnemyShooter>();
 
             if (enemyShooter != null)
