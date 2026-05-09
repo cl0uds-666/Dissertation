@@ -399,6 +399,17 @@ public class SectionGenerator : MonoBehaviour
         }
 
         navMeshModifier.ignoreFromBuild = true;
+
+        // Cover should block navigation at runtime so agents route around it.
+        NavMeshObstacle navMeshObstacle = coverObject.GetComponent<NavMeshObstacle>();
+
+        if (navMeshObstacle == null)
+        {
+            navMeshObstacle = coverObject.AddComponent<NavMeshObstacle>();
+        }
+
+        navMeshObstacle.carving = true;
+        navMeshObstacle.carveOnlyStationary = true;
     }
 
     private bool TryGetCoverPositionForZone(Vector3 sectionOrigin, string zoneName, out Vector3 position)
