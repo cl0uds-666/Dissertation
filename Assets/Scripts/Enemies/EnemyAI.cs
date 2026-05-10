@@ -58,6 +58,12 @@ public class EnemyAI : MonoBehaviour
         navMeshAgent.stoppingDistance = stopDistance;
 
         enemyLineOfSight = GetComponent<EnemyLineOfSight>();
+
+        // Helpful auto-wiring: if LOS exists but has no player, use our player reference.
+        if (enemyLineOfSight != null && enemyLineOfSight.player == null && player != null)
+        {
+            enemyLineOfSight.Setup(player);
+        }
     }
 
     private void Update()
@@ -88,6 +94,15 @@ public class EnemyAI : MonoBehaviour
     {
         // Fallback: if no line-of-sight component exists, keep old chase behavior.
         if (enemyLineOfSight == null)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        // If LOS has no player assigned, fail safe to old chase behavior.
+        if (enemyLineOfSight.player == null)
         {
             navMeshAgent.isStopped = false;
             navMeshAgent.stoppingDistance = stopDistance;
@@ -189,6 +204,11 @@ public class EnemyAI : MonoBehaviour
 
         navMeshAgent.speed = moveSpeed;
         navMeshAgent.stoppingDistance = stopDistance;
+
+        if (enemyLineOfSight != null && enemyLineOfSight.player == null && player != null)
+        {
+            enemyLineOfSight.Setup(player);
+        }
 
         patrolPoints.Clear();
 
