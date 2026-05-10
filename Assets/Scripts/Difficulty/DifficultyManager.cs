@@ -17,6 +17,15 @@ public class DifficultyManager : MonoBehaviour
     public float meanReversion = 0.04f;
     [Tooltip("Hard limit on per-section update magnitude for stability.")]
     public float maxStepPerSection = 0.75f;
+    [Tooltip("Scales negative deltas (difficulty downshifts) so hard spikes reduce challenge more gradually.")]
+    [Range(0f, 1f)]
+    public float downshiftMultiplier = 0.7f;
+    [Tooltip("Number of recent sections used to smooth each metric before scoring.")]
+    [Min(1)]
+    public int smoothingWindow = 3;
+    [Tooltip("Minimum confidence factor applied while smoothing history is still filling.")]
+    [Range(0f, 1f)]
+    public float confidenceFloor = 0.5f;
 
     [Header("Health Lost Flow Zone")]
     public float healthLostTooEasyMax = 5f;
@@ -52,6 +61,11 @@ public class DifficultyManager : MonoBehaviour
     public bool logDifficultyChanges = true;
 
     private DifficultyAnalysisResult lastAnalysisResult;
+
+    private readonly System.Collections.Generic.List<float> healthLostHistory = new System.Collections.Generic.List<float>();
+    private readonly System.Collections.Generic.List<float> completionTimeHistory = new System.Collections.Generic.List<float>();
+    private readonly System.Collections.Generic.List<float> accuracyHistory = new System.Collections.Generic.List<float>();
+    private readonly System.Collections.Generic.List<float> ttkHistory = new System.Collections.Generic.List<float>();
 
     public DifficultyAnalysisResult GetLastAnalysisResult() { return lastAnalysisResult; }
 
@@ -119,16 +133,29 @@ public class DifficultyManager : MonoBehaviour
         float oldDifficulty = currentDifficultyState;
         int flowScore = 0;
 
-        string healthResult = EvaluateHealthLost(metrics.playerHealthLost, ref flowScore);
-        string timeResult = EvaluateCompletionTime(metrics.completionTime, ref flowScore);
-        string accuracyResult = EvaluateAccuracy(metrics.accuracyPercent, ref flowScore);
-        string ttkResult = EvaluateTTK(metrics.averageEnemyTimeToKill, ref flowScore);
+        float smoothedHealthLost = GetSmoothedMetric(healthLostHistory, metrics.playerHealthLost);
+        float smoothedCompletionTime = GetSmoothedMetric(completionTimeHistory, metrics.completionTime);
+        float smoothedAccuracy = GetSmoothedMetric(accuracyHistory, metrics.accuracyPercent);
+        float smoothedTTK = GetSmoothedMetric(ttkHistory, metrics.averageEnemyTimeToKill);
+
+        string healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
+        string timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
+        string accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
+        string ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
 
         string overallResult = "Flow Zone";
         if (flowScore < 0) { overallResult = "Too Easy"; }
         else if (flowScore > 0) { overallResult = "Too Hard"; }
 
         float rawDelta = (-flowScore * adaptationGain) - (meanReversion * oldDifficulty);
+        float confidence = GetSmoothingConfidence();
+        rawDelta *= confidence;
+
+        if (rawDelta < 0f)
+        {
+            rawDelta *= Mathf.Clamp01(downshiftMultiplier);
+        }
+
         float delta = Mathf.Clamp(rawDelta, -maxStepPerSection, maxStepPerSection);
         float newDifficulty = oldDifficulty;
 
@@ -158,6 +185,8 @@ public class DifficultyManager : MonoBehaviour
                 "\nCompletion Time: " + metrics.completionTime.ToString("F2") + "s -> " + timeResult +
                 "\nAccuracy: " + metrics.accuracyPercent.ToString("F1") + "% -> " + accuracyResult +
                 "\nAverage Enemy TTK: " + metrics.averageEnemyTimeToKill.ToString("F2") + "s -> " + ttkResult +
+                "\nSmoothed Metrics [N=" + Mathf.Max(1, smoothingWindow) + "]: HL=" + smoothedHealthLost.ToString("F1") + ", CT=" + smoothedCompletionTime.ToString("F2") + "s, ACC=" + smoothedAccuracy.ToString("F1") + "%, TTK=" + smoothedTTK.ToString("F2") + "s" +
+                "\nSmoothing Confidence: " + confidence.ToString("F2") +
                 "\nFlow Score: " + flowScore +
                 "\nOverall Result: " + overallResult +
                 "\nAdaptive Enabled: " + adaptiveDifficultyEnabled +
@@ -167,6 +196,38 @@ public class DifficultyManager : MonoBehaviour
         }
 
         return result;
+    }
+
+    private float GetSmoothedMetric(System.Collections.Generic.List<float> history, float currentValue)
+    {
+        if (currentValue <= 0f && history == ttkHistory)
+        {
+            return currentValue;
+        }
+
+        int window = Mathf.Max(1, smoothingWindow);
+        history.Add(currentValue);
+
+        if (history.Count > window)
+        {
+            history.RemoveAt(0);
+        }
+
+        float sum = 0f;
+        for (int i = 0; i < history.Count; i++)
+        {
+            sum += history[i];
+        }
+
+        return sum / history.Count;
+    }
+
+    private float GetSmoothingConfidence()
+    {
+        int window = Mathf.Max(1, smoothingWindow);
+        int samples = Mathf.Min(healthLostHistory.Count, Mathf.Min(completionTimeHistory.Count, Mathf.Min(accuracyHistory.Count, ttkHistory.Count)));
+        float historyRatio = Mathf.Clamp01((float)samples / window);
+        return Mathf.Lerp(Mathf.Clamp01(confidenceFloor), 1f, historyRatio);
     }
 
     private float Sigmoid(float x)
