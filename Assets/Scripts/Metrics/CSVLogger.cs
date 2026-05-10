@@ -58,7 +58,7 @@ public class CSVLogger : MonoBehaviour
     private string GetCsvHeader()
     {
         return
-            "SectionIndex,DifficultyBefore,DifficultyAfter,FlowScore,FlowResult," +
+            "SectionIndex,DifficultyStateBefore,DifficultyStateAfter,FlowScore,FlowResult," +
             "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
             "CompletionTime,HealthStart,HealthEnd,HealthLost," +
             "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
@@ -112,8 +112,8 @@ public class CSVLogger : MonoBehaviour
         StringBuilder row = new StringBuilder();
 
         row.Append(metrics.sectionIndex).Append(',');
-        row.Append(analysis.difficultyBefore).Append(',');
-        row.Append(analysis.difficultyAfter).Append(',');
+        row.Append(analysis.difficultyStateBefore.ToString("F3")).Append(',');
+        row.Append(analysis.difficultyStateAfter.ToString("F3")).Append(',');
         row.Append(analysis.flowScore).Append(',');
         row.Append(SanitizeCsvText(analysis.flowResult)).Append(',');
 

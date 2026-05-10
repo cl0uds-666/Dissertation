@@ -32,7 +32,7 @@ public class GameUI : MonoBehaviour
 
     private string GetHealthText(){ if (playerHealth == null) return "Health: N/A"; return "Health: " + playerHealth.GetCurrentHealth().ToString("F0") + " / " + playerHealth.maxHealth.ToString("F0"); }
     private string GetSectionText(){ SectionInstance currentSection = GetCurrentSection(); if (currentSection == null) return "Section: N/A"; return "Section: " + currentSection.sectionIndex; }
-    private string GetDifficultyText(){ if (difficultyManager == null) return "Difficulty: N/A"; return "Difficulty: " + difficultyManager.currentDifficultyScore + " / " + difficultyManager.maxDifficultyScore; }
+    private string GetDifficultyText(){ if (difficultyManager == null) return "Difficulty: N/A"; return "Difficulty State: " + difficultyManager.currentDifficultyState.ToString("F2"); }
     private string GetEnemiesText(){ SectionInstance currentSection = GetCurrentSection(); if (currentSection == null) return "Enemies: N/A"; return "Enemies: " + currentSection.enemiesAlive + " / " + currentSection.totalEnemies; }
     private string GetModeText(){ if (difficultyManager == null) return "Mode: N/A"; return difficultyManager.adaptiveDifficultyEnabled ? "Mode: Adaptive" : "Mode: Fixed"; }
 

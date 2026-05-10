@@ -9,9 +9,9 @@ using UnityEngine;
 [System.Serializable]
 public class DifficultyAnalysisResult
 {
-    [Header("Difficulty Change")]
-    public int difficultyBefore;
-    public int difficultyAfter;
+    [Header("Difficulty State Change")]
+    public float difficultyStateBefore;
+    public float difficultyStateAfter;
 
     [Header("Flow Result")]
     public int flowScore;

@@ -601,23 +601,19 @@ public class SectionGenerator : MonoBehaviour
 
     private GeneratedEnemyRole GetEnemyRoleForSpawn(int enemyIndex, int totalEnemies)
     {
-        int difficulty = currentProfile != null ? currentProfile.difficultyScore : 3;
+        float difficultyState = currentProfile != null ? currentProfile.difficultyState : 0f;
 
         int chaserCount = 0;
 
-        if (difficulty <= 2)
+        if (difficultyState <= -1.5f)
         {
             chaserCount = 0;
         }
-        else if (difficulty <= 4)
+        else if (difficultyState <= 0.8f)
         {
             chaserCount = 1;
         }
-        else if (difficulty <= 6)
-        {
-            chaserCount = 1;
-        }
-        else if (difficulty <= 8)
+        else if (difficultyState <= 2.2f)
         {
             chaserCount = 2;
         }
