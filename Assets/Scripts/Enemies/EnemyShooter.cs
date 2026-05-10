@@ -47,6 +47,7 @@ public class EnemyShooter : MonoBehaviour
     public bool drawDebugRay = true;
 
     private float nextFireTime;
+    private EnemyLineOfSight enemyLineOfSight;
 
     public void Setup(
         Transform playerTransform,
@@ -71,6 +72,12 @@ public class EnemyShooter : MonoBehaviour
         peekDamageChance = Mathf.Clamp01(newPeekDamageChance);
     }
 
+    private void Awake()
+    {
+        // Optional: if this exists, shooting respects visibility.
+        enemyLineOfSight = GetComponent<EnemyLineOfSight>();
+    }
+
     private void Update()
     {
         if (!canShoot)
@@ -84,6 +91,13 @@ public class EnemyShooter : MonoBehaviour
         }
 
         if (Time.time < nextFireTime)
+        {
+            return;
+        }
+
+        // If line-of-sight exists, only shoot when the player is visible.
+        // If line-of-sight is missing, keep the old behavior (fallback).
+        if (enemyLineOfSight != null && !enemyLineOfSight.CanSeePlayer)
         {
             return;
         }

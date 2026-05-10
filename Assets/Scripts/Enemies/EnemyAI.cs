@@ -40,11 +40,24 @@ public class EnemyAI : MonoBehaviour
     private int currentPatrolIndex;
     private float nextDamageTime;
 
+    // Optional line-of-sight component for simple visibility-driven behavior.
+    private EnemyLineOfSight enemyLineOfSight;
+
+    // Stores where the player was when they were last visible.
+    private Vector3 lastKnownPlayerPosition;
+    private bool hasLastKnownPlayerPosition;
+
+    // Tracks visibility changes so we only do "go to last known position" once.
+    private bool wasSeeingPlayerLastFrame;
+    private bool isSearchingLastKnownPosition;
+
     private void Awake()
     {
         navMeshAgent = GetComponent<NavMeshAgent>();
         navMeshAgent.speed = moveSpeed;
         navMeshAgent.stoppingDistance = stopDistance;
+
+        enemyLineOfSight = GetComponent<EnemyLineOfSight>();
     }
 
     private void Update()
@@ -73,9 +86,61 @@ public class EnemyAI : MonoBehaviour
 
     private void UpdateChaseMovement()
     {
-        navMeshAgent.isStopped = false;
-        navMeshAgent.stoppingDistance = stopDistance;
-        navMeshAgent.SetDestination(player.position);
+        // Fallback: if no line-of-sight component exists, keep old chase behavior.
+        if (enemyLineOfSight == null)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        bool canSeePlayer = enemyLineOfSight.CanSeePlayer;
+
+        // When the player is visible, keep updating last known position and chase.
+        if (canSeePlayer)
+        {
+            lastKnownPlayerPosition = player.position;
+            hasLastKnownPlayerPosition = true;
+            wasSeeingPlayerLastFrame = true;
+            isSearchingLastKnownPosition = false;
+
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        // If visibility just changed to false, move once to last known position.
+        if (wasSeeingPlayerLastFrame && hasLastKnownPlayerPosition)
+        {
+            isSearchingLastKnownPosition = true;
+            wasSeeingPlayerLastFrame = false;
+
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+            navMeshAgent.SetDestination(lastKnownPlayerPosition);
+            return;
+        }
+
+        // While searching, continue until that point is reached.
+        if (isSearchingLastKnownPosition)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+
+            if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance <= patrolPointReachedDistance)
+            {
+                isSearchingLastKnownPosition = false;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        // If player is not visible and search is done, patrol.
+        UpdatePatrolMovement();
     }
 
     private void UpdatePatrolMovement()
@@ -133,6 +198,10 @@ public class EnemyAI : MonoBehaviour
         }
 
         currentPatrolIndex = 0;
+
+        hasLastKnownPlayerPosition = false;
+        wasSeeingPlayerLastFrame = false;
+        isSearchingLastKnownPosition = false;
 
         if (movementMode == MovementMode.Patrol && patrolPoints.Count > 0)
         {
