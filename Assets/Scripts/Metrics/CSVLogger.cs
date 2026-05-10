@@ -45,7 +45,8 @@ public class CSVLogger : MonoBehaviour
             "SectionIndex,DifficultyBefore,DifficultyAfter,FlowScore,FlowResult," +
             "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
             "CompletionTime,HealthStart,HealthEnd,HealthLost," +
-            "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK";
+            "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
+            "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
 
         lock (FileWriteLock)
         {
@@ -95,7 +96,13 @@ public class CSVLogger : MonoBehaviour
         row.Append(metrics.shotsHit).Append(',');
         row.Append(metrics.accuracyPercent.ToString("F1")).Append(',');
         row.Append(metrics.enemiesKilled).Append(',');
-        row.Append(metrics.averageEnemyTimeToKill.ToString("F2"));
+        row.Append(metrics.averageEnemyTimeToKill.ToString("F2")).Append(',');
+
+        row.Append(metrics.timeDetected.ToString("F2")).Append(',');
+        row.Append(metrics.timeUndetected.ToString("F2")).Append(',');
+        row.Append(metrics.timesDetected).Append(',');
+        row.Append(metrics.stealthKills).Append(',');
+        row.Append(metrics.detectedKills);
 
         AppendWithRetry(row + "\n");
     }

@@ -16,6 +16,8 @@ public class EnemyHealth : MonoBehaviour
 
     private bool isDead;
 
+    public bool IsDead => isDead;
+
     private float spawnTime;
 
     private void Awake()
@@ -63,9 +65,12 @@ public class EnemyHealth : MonoBehaviour
 
         float timeToKill = Time.time - spawnTime;
 
+        EnemyLineOfSight lineOfSight = GetComponent<EnemyLineOfSight>();
+        bool wasStealthKill = lineOfSight == null || !lineOfSight.HasEverSeenPlayer;
+
         if (owningSection != null)
         {
-            owningSection.RegisterEnemyDeath(timeToKill);
+            owningSection.RegisterEnemyDeath(timeToKill, wasStealthKill);
         }
 
         Destroy(gameObject);

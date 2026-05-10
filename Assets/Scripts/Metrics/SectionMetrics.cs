@@ -35,6 +35,13 @@ public class SectionMetrics
     [Header("Enemy Metrics")]
     public int enemiesSpawned;
     public int enemiesKilled;
+    public int stealthKills;
+    public int detectedKills;
+
+    [Header("Detection Metrics")]
+    public float timeDetected;
+    public float timeUndetected;
+    public int timesDetected;
     public List<float> enemyTimeToKillValues = new List<float>();
     public float averageEnemyTimeToKill;
 
@@ -66,6 +73,12 @@ public class SectionMetrics
 
         enemiesSpawned = enemyCount;
         enemiesKilled = 0;
+        stealthKills = 0;
+        detectedKills = 0;
+
+        timeDetected = 0f;
+        timeUndetected = 0f;
+        timesDetected = 0;
 
         enemyTimeToKillValues.Clear();
         averageEnemyTimeToKill = 0f;
@@ -73,7 +86,22 @@ public class SectionMetrics
 
     public void RecordShotFired(){ shotsFired++; RecalculateAccuracy(); }
     public void RecordShotHit(){ shotsHit++; RecalculateAccuracy(); }
-    public void RecordEnemyKilled(float timeToKill){ enemiesKilled++; enemyTimeToKillValues.Add(timeToKill); RecalculateAverageTTK(); }
+    public void RecordEnemyKilled(float timeToKill, bool wasStealthKill)
+    {
+        enemiesKilled++;
+
+        if (wasStealthKill)
+        {
+            stealthKills++;
+        }
+        else
+        {
+            detectedKills++;
+        }
+
+        enemyTimeToKillValues.Add(timeToKill);
+        RecalculateAverageTTK();
+    }
 
     public void EndSection(float currentPlayerHealth)
     {
