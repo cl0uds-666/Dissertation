@@ -40,11 +40,34 @@ public class EnemyAI : MonoBehaviour
     private int currentPatrolIndex;
     private float nextDamageTime;
 
+    // Optional line-of-sight component for simple visibility-driven behavior.
+    private EnemyLineOfSight enemyLineOfSight;
+
+    // Stores where the player was when they were last visible.
+    private Vector3 lastKnownPlayerPosition;
+    private bool hasLastKnownPlayerPosition;
+
+    // Tracks visibility changes so we only do "go to last known position" once.
+    private bool wasSeeingPlayerLastFrame;
+    private bool isSearchingLastKnownPosition;
+
+    // Simple fallback patrol anchor when no patrol points are configured.
+    private Vector3 defaultPatrolAnchor;
+
     private void Awake()
     {
         navMeshAgent = GetComponent<NavMeshAgent>();
         navMeshAgent.speed = moveSpeed;
         navMeshAgent.stoppingDistance = stopDistance;
+        defaultPatrolAnchor = transform.position;
+
+        enemyLineOfSight = GetComponent<EnemyLineOfSight>();
+
+        // Helpful auto-wiring: if LOS exists but has no player, use our player reference.
+        if (enemyLineOfSight != null && enemyLineOfSight.player == null && player != null)
+        {
+            enemyLineOfSight.Setup(player);
+        }
     }
 
     private void Update()
@@ -58,11 +81,16 @@ public class EnemyAI : MonoBehaviour
         {
             case MovementMode.Stationary:
                 navMeshAgent.isStopped = true;
-                FacePlayer();
+
+                // Only look at player when detected if LOS is available.
+                if (enemyLineOfSight == null || enemyLineOfSight.player == null || enemyLineOfSight.CanSeePlayer)
+                {
+                    FacePlayer();
+                }
                 break;
 
             case MovementMode.Patrol:
-                UpdatePatrolMovement();
+                UpdatePatrolOrLookMovement();
                 break;
 
             case MovementMode.ChasePlayer:
@@ -71,19 +99,102 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+
+    private void UpdatePatrolOrLookMovement()
+    {
+        // If LOS exists and the player is visible, stop and look so shooters can fire.
+        if (enemyLineOfSight != null && enemyLineOfSight.player != null && enemyLineOfSight.CanSeePlayer)
+        {
+            navMeshAgent.isStopped = true;
+            FacePlayer();
+            return;
+        }
+
+        UpdatePatrolMovement();
+    }
+
     private void UpdateChaseMovement()
     {
-        navMeshAgent.isStopped = false;
-        navMeshAgent.stoppingDistance = stopDistance;
-        navMeshAgent.SetDestination(player.position);
+        // Fallback: if no line-of-sight component exists, keep old chase behavior.
+        if (enemyLineOfSight == null)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        // If LOS has no player assigned, fail safe to old chase behavior.
+        if (enemyLineOfSight.player == null)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        bool canSeePlayer = enemyLineOfSight.CanSeePlayer;
+
+        // When the player is visible, keep updating last known position and chase.
+        if (canSeePlayer)
+        {
+            lastKnownPlayerPosition = player.position;
+            hasLastKnownPlayerPosition = true;
+            wasSeeingPlayerLastFrame = true;
+            isSearchingLastKnownPosition = false;
+
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = stopDistance;
+            navMeshAgent.SetDestination(player.position);
+            return;
+        }
+
+        // If visibility just changed to false, move once to last known position.
+        if (wasSeeingPlayerLastFrame && hasLastKnownPlayerPosition)
+        {
+            isSearchingLastKnownPosition = true;
+            wasSeeingPlayerLastFrame = false;
+
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+            navMeshAgent.SetDestination(lastKnownPlayerPosition);
+            return;
+        }
+
+        // While searching, continue until that point is reached.
+        if (isSearchingLastKnownPosition)
+        {
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+
+            if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance <= patrolPointReachedDistance)
+            {
+                isSearchingLastKnownPosition = false;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        // If player is not visible and search is done, patrol.
+        UpdatePatrolMovement();
     }
 
     private void UpdatePatrolMovement()
     {
         if (patrolPoints.Count == 0)
         {
-            navMeshAgent.isStopped = true;
-            FacePlayer();
+            // No patrol route assigned: move back to spawn anchor as a simple patrol fallback.
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+            navMeshAgent.SetDestination(defaultPatrolAnchor);
+
+            if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance <= patrolPointReachedDistance)
+            {
+                navMeshAgent.isStopped = true;
+            }
+
             return;
         }
 
@@ -125,6 +236,11 @@ public class EnemyAI : MonoBehaviour
         navMeshAgent.speed = moveSpeed;
         navMeshAgent.stoppingDistance = stopDistance;
 
+        if (enemyLineOfSight != null && enemyLineOfSight.player == null && player != null)
+        {
+            enemyLineOfSight.Setup(player);
+        }
+
         patrolPoints.Clear();
 
         if (newPatrolPoints != null)
@@ -133,6 +249,12 @@ public class EnemyAI : MonoBehaviour
         }
 
         currentPatrolIndex = 0;
+
+        defaultPatrolAnchor = transform.position;
+
+        hasLastKnownPlayerPosition = false;
+        wasSeeingPlayerLastFrame = false;
+        isSearchingLastKnownPosition = false;
 
         if (movementMode == MovementMode.Patrol && patrolPoints.Count > 0)
         {

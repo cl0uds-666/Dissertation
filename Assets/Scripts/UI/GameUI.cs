@@ -25,8 +25,9 @@ public class GameUI : MonoBehaviour
         string modeText = GetModeText();
         string flowText = GetFlowText();
         string coverText = GetCoverText();
+        string detectionText = GetDetectionText();
 
-        hudText.text = healthText + "\n" + sectionText + "\n" + difficultyText + "\n" + enemiesText + "\n" + modeText + "\n" + flowText + "\n" + coverText;
+        hudText.text = healthText + "\n" + sectionText + "\n" + difficultyText + "\n" + enemiesText + "\n" + modeText + "\n" + flowText + "\n" + coverText + "\n" + detectionText;
     }
 
     private string GetHealthText(){ if (playerHealth == null) return "Health: N/A"; return "Health: " + playerHealth.GetCurrentHealth().ToString("F0") + " / " + playerHealth.maxHealth.ToString("F0"); }
@@ -70,6 +71,18 @@ public class GameUI : MonoBehaviour
         }
 
         return "Cover: Hidden (" + coverType + ")";
+    }
+
+    private string GetDetectionText()
+    {
+        SectionInstance currentSection = GetCurrentSection();
+
+        if (currentSection == null)
+        {
+            return "Detected: N/A";
+        }
+
+        return currentSection.isPlayerDetected ? "Detected: Yes" : "Detected: No";
     }
 
     private SectionInstance GetCurrentSection(){ if (sectionGenerator == null) return null; return sectionGenerator.GetCurrentActiveSection(); }

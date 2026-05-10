@@ -12,12 +12,17 @@ public class SectionInstance : MonoBehaviour
     [Header("Section State")]
     public bool sectionCleared;
 
+    [Header("Detection State")]
+    public bool isPlayerDetected;
+
     [Header("Metrics")]
     public SectionMetrics metrics = new SectionMetrics();
 
     private PlayerHealth playerHealth;
     private DifficultyManager difficultyManager;
     private CSVLogger csvLogger;
+
+    private EnemyLineOfSight[] sectionEnemyLineOfSight = new EnemyLineOfSight[0];
 
     public void Setup(
         int newSectionIndex,
@@ -44,17 +49,80 @@ public class SectionInstance : MonoBehaviour
 
         metrics.StartSection(sectionIndex, startingHealth, enemyCount, coverCount, shooterCount, chaserCount);
 
+        sectionEnemyLineOfSight = GetComponentsInChildren<EnemyLineOfSight>(true);
+        isPlayerDetected = false;
+
         Debug.Log("Section " + sectionIndex + " started. Enemies: " + enemiesAlive);
+    }
+
+
+    private void Update()
+    {
+        if (sectionCleared)
+        {
+            return;
+        }
+
+        UpdateDetectionMetrics();
+    }
+
+    private void UpdateDetectionMetrics()
+    {
+        bool detectedThisFrame = IsAnyLivingEnemySeeingPlayer();
+
+        if (detectedThisFrame)
+        {
+            metrics.timeDetected += Time.deltaTime;
+        }
+        else
+        {
+            metrics.timeUndetected += Time.deltaTime;
+        }
+
+        // Count only rising edges: false -> true.
+        if (!isPlayerDetected && detectedThisFrame)
+        {
+            metrics.timesDetected++;
+        }
+
+        isPlayerDetected = detectedThisFrame;
+    }
+
+    private bool IsAnyLivingEnemySeeingPlayer()
+    {
+        for (int i = 0; i < sectionEnemyLineOfSight.Length; i++)
+        {
+            EnemyLineOfSight lineOfSight = sectionEnemyLineOfSight[i];
+
+            if (lineOfSight == null)
+            {
+                continue;
+            }
+
+            EnemyHealth enemyHealth = lineOfSight.GetComponent<EnemyHealth>();
+
+            if (enemyHealth != null && enemyHealth.IsDead)
+            {
+                continue;
+            }
+
+            if (lineOfSight.CanSeePlayer)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void RegisterShotFired(){ if (sectionCleared) return; metrics.RecordShotFired(); }
     public void RegisterShotHit(){ if (sectionCleared) return; metrics.RecordShotHit(); }
 
-    public void RegisterEnemyDeath(float enemyTimeToKill)
+    public void RegisterEnemyDeath(float enemyTimeToKill, bool wasStealthKill)
     {
         enemiesAlive--;
         enemiesAlive = Mathf.Max(enemiesAlive, 0);
-        metrics.RecordEnemyKilled(enemyTimeToKill);
+        metrics.RecordEnemyKilled(enemyTimeToKill, wasStealthKill);
 
         if (enemiesAlive <= 0) { CompleteSection(); }
     }

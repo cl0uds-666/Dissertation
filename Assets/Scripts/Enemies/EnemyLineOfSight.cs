@@ -19,10 +19,17 @@ public class EnemyLineOfSight : MonoBehaviour
     public LayerMask obstacleLayers;
 
     public bool CanSeePlayer { get; private set; }
+    public bool HasEverSeenPlayer { get; private set; }
 
     private void Update()
     {
         CanSeePlayer = EvaluateLineOfSight();
+
+        // Permanent memory flag used for stealth/detected kill metrics.
+        if (CanSeePlayer)
+        {
+            HasEverSeenPlayer = true;
+        }
     }
 
     public void Setup(Transform playerTransform)
