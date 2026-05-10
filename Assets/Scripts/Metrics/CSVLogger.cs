@@ -32,6 +32,7 @@ public class CSVLogger : MonoBehaviour
 
         filePath = Path.Combine(Application.persistentDataPath, FileName);
         EnsureFileExistsWithHeader();
+        EnsureHeaderContainsAllColumns();
     }
 
     private void EnsureFileExistsWithHeader()
@@ -41,12 +42,7 @@ public class CSVLogger : MonoBehaviour
             return;
         }
 
-        string header =
-            "SectionIndex,DifficultyBefore,DifficultyAfter,FlowScore,FlowResult," +
-            "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
-            "CompletionTime,HealthStart,HealthEnd,HealthLost," +
-            "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
-            "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
+        string header = GetCsvHeader();
 
         lock (FileWriteLock)
         {
@@ -56,6 +52,44 @@ public class CSVLogger : MonoBehaviour
                 Debug.Log("CSVLogger created file: " + filePath);
             }
         }
+    }
+
+
+    private string GetCsvHeader()
+    {
+        return
+            "SectionIndex,DifficultyBefore,DifficultyAfter,FlowScore,FlowResult," +
+            "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
+            "CompletionTime,HealthStart,HealthEnd,HealthLost," +
+            "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
+            "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
+    }
+
+    private void EnsureHeaderContainsAllColumns()
+    {
+        string expectedHeader = GetCsvHeader();
+
+        if (!File.Exists(filePath))
+        {
+            return;
+        }
+
+        string[] lines = File.ReadAllLines(filePath);
+
+        if (lines.Length == 0)
+        {
+            File.WriteAllText(filePath, expectedHeader + "\n");
+            return;
+        }
+
+        if (lines[0] == expectedHeader)
+        {
+            return;
+        }
+
+        // Keep existing data rows, but upgrade the header so metric names are present.
+        lines[0] = expectedHeader;
+        File.WriteAllLines(filePath, lines);
     }
 
     public void LogSectionResult(SectionMetrics metrics, DifficultyAnalysisResult analysis)
@@ -73,6 +107,7 @@ public class CSVLogger : MonoBehaviour
         }
 
         EnsureFileExistsWithHeader();
+        EnsureHeaderContainsAllColumns();
 
         StringBuilder row = new StringBuilder();
 
