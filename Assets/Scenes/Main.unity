@@ -859,6 +859,7 @@ GameObject:
   - component: {fileID: 1982503339}
   - component: {fileID: 1982503340}
   - component: {fileID: 1982503341}
+  - component: {fileID: 1982503342}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -901,7 +902,7 @@ MonoBehaviour:
   playerHealth: {fileID: 1033540825}
   playerShooter: {fileID: 1033540824}
   difficultyManager: {fileID: 1982503340}
-  csvLogger: {fileID: 0}
+  csvLogger: {fileID: 1982503342}
   sectionWidth: 20
   sectionLength: 30
   coverCount: 8
@@ -946,9 +947,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   adaptiveDifficultyEnabled: 1
-  currentDifficultyScore: 3
-  minDifficultyScore: 1
-  maxDifficultyScore: 10
+  currentDifficultyState: 0
+  adaptationGain: 0.22
+  meanReversion: 0.04
+  maxStepPerSection: 0.75
+  downshiftMultiplier: 0.7
+  smoothingWindow: 3
+  confidenceFloor: 0.5
   healthLostTooEasyMax: 5
   healthLostFlowMin: 10
   healthLostFlowMax: 35
@@ -969,8 +974,6 @@ MonoBehaviour:
   completionTimeWeight: 1
   accuracyWeight: 1
   ttkWeight: 1
-  tooEasyScoreThreshold: -2
-  tooHardScoreThreshold: 2
   logDifficultyChanges: 1
 --- !u!114 &1982503341
 MonoBehaviour:
@@ -989,6 +992,18 @@ MonoBehaviour:
   difficultyManager: {fileID: 1982503340}
   sectionGenerator: {fileID: 1982503338}
   playerCoverController: {fileID: 1033540831}
+--- !u!114 &1982503342
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1982503336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ae35829fcb520c4a93604d5297af675, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2012708215
 GameObject:
   m_ObjectHideFlags: 0
