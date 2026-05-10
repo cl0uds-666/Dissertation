@@ -553,6 +553,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 100
+  regenEnabled: 1
+  regenDelay: 4
+  regenPerSecond: 5
+  mainMenuSceneName: Menu
+  deathToMenuDelay: 1.5
+  scriptsToDisableOnDeath: []
 --- !u!114 &1033540831
 MonoBehaviour:
   m_ObjectHideFlags: 0
