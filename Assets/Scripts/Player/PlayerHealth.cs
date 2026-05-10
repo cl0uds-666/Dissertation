@@ -25,7 +25,7 @@ public class PlayerHealth : MonoBehaviour
 
     [Header("Death")]
     [Tooltip("Scene name to load after death.")]
-    public string mainMenuSceneName = "MainMenu";
+    public string mainMenuSceneName = "Menu";
 
     [Tooltip("Delay before returning to the main menu after death.")]
     public float deathToMenuDelay = 1.5f;
@@ -166,6 +166,10 @@ public class PlayerHealth : MonoBehaviour
                 "PlayerHealth: Scene '" + mainMenuSceneName + "' is not in Build Settings or is invalid. Cannot load main menu.");
             yield break;
         }
+
+        // Ensure the cursor is usable again in the menu scene.
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         SceneManager.LoadScene(mainMenuSceneName);
     }
