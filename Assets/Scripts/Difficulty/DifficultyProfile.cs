@@ -1,17 +1,16 @@
 using UnityEngine;
 
 /// <summary>
-/// Stores the actual gameplay values used to generate a section.
+/// Stores the gameplay values used to generate one section.
 /// 
-/// The DifficultyManager creates one of these profiles based on the current
-/// difficulty score. The SectionGenerator then uses this profile when spawning
-/// cover and enemies.
+/// This profile is generated from the current continuous difficulty state,
+/// not selected from fixed level buckets.
 /// </summary>
 [System.Serializable]
 public class DifficultyProfile
 {
-    [Header("Difficulty")]
-    public int difficultyScore;
+    [Header("Difficulty State")]
+    public float difficultyState;
 
     [Header("Enemy Movement Settings")]
     public int enemyCount;
@@ -44,7 +43,7 @@ public class DifficultyProfile
     public float sideCoverGapMax;
 
     public DifficultyProfile(
-        int newDifficultyScore,
+        float newDifficultyState,
 
         int newEnemyCount,
         float newEnemyHealth,
@@ -73,7 +72,7 @@ public class DifficultyProfile
         float newSideCoverGapMax
     )
     {
-        difficultyScore = newDifficultyScore;
+        difficultyState = newDifficultyState;
 
         enemyCount = newEnemyCount;
         enemyHealth = newEnemyHealth;

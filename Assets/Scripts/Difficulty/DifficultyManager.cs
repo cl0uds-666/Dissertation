@@ -3,13 +3,20 @@ using UnityEngine;
 public class DifficultyManager : MonoBehaviour
 {
     [Header("Mode")]
-    [Tooltip("If false, difficulty score stays fixed, but analysis and logging still run.")]
+    [Tooltip("If false, difficulty state stays fixed, but analysis and logging still run.")]
     public bool adaptiveDifficultyEnabled = true;
 
-    [Header("Difficulty Score")]
-    public int currentDifficultyScore = 3;
-    public int minDifficultyScore = 1;
-    public int maxDifficultyScore = 10;
+    [Header("Continuous Difficulty State")]
+    [Tooltip("Unbounded latent difficulty state. Higher means more challenge.")]
+    public float currentDifficultyState = 0f;
+
+    [Header("Adaptation Dynamics")]
+    [Tooltip("How strongly each section's flow score changes difficulty state.")]
+    public float adaptationGain = 0.22f;
+    [Tooltip("Mean-reversion prevents long-term drift and encourages settling.")]
+    public float meanReversion = 0.04f;
+    [Tooltip("Hard limit on per-section update magnitude for stability.")]
+    public float maxStepPerSection = 0.75f;
 
     [Header("Health Lost Flow Zone")]
     public float healthLostTooEasyMax = 5f;
@@ -41,10 +48,6 @@ public class DifficultyManager : MonoBehaviour
     public int accuracyWeight = 1;
     public int ttkWeight = 1;
 
-    [Header("Flow Score Thresholds")]
-    public int tooEasyScoreThreshold = -2;
-    public int tooHardScoreThreshold = 2;
-
     [Header("Debug")]
     public bool logDifficultyChanges = true;
 
@@ -54,25 +57,66 @@ public class DifficultyManager : MonoBehaviour
 
     public DifficultyProfile GetCurrentProfile()
     {
-        switch (currentDifficultyScore)
-        {
-            case 1: return new DifficultyProfile(1,2,30f,2.0f,false,true,5f,2.4f,25f,0.10f,0.45f,0.25f,14,3.0f,5.0f,1.3f,2.4f,true,0.95f,1.0f,3.0f,0.8f,1.8f);
-            case 2: return new DifficultyProfile(2,2,35f,2.2f,false,true,6f,2.2f,27f,0.11f,0.38f,0.30f,12,2.7f,4.7f,1.2f,2.3f,true,0.85f,1.0f,2.8f,1.0f,2.0f);
-            case 3: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,0.35f,10,2.3f,4.3f,1.1f,2.1f,true,0.7f,1.0f,2.5f,1.4f,2.4f);
-            case 4: return new DifficultyProfile(4,3,50f,3.0f,false,true,8f,1.8f,32f,0.13f,0.27f,0.40f,8,1.8f,3.8f,1.0f,1.9f,true,0.6f,1.0f,2.2f,1.8f,2.8f);
-            case 5: return new DifficultyProfile(5,4,60f,3.3f,false,true,9f,1.6f,34f,0.14f,0.22f,0.45f,7,1.5f,3.4f,1.0f,1.8f,true,0.45f,1.0f,2.0f,2.2f,3.2f);
-            case 6: return new DifficultyProfile(6,4,70f,3.6f,false,true,10f,1.45f,36f,0.15f,0.18f,0.50f,6,1.3f,3.0f,0.9f,1.7f,true,0.3f,1.0f,1.8f,2.4f,3.6f);
-            case 7: return new DifficultyProfile(7,5,80f,3.9f,false,true,11f,1.3f,38f,0.16f,0.14f,0.55f,5,1.2f,2.7f,0.9f,1.6f,true,0.2f,1.0f,1.6f,3.0f,4.0f);
-            case 8: return new DifficultyProfile(8,5,90f,4.2f,false,true,12f,1.15f,40f,0.17f,0.10f,0.60f,4,1.0f,2.5f,0.8f,1.5f,true,0.1f,1.0f,1.4f,3.2f,4.2f);
-            case 9: return new DifficultyProfile(9,6,100f,4.5f,false,true,13f,1.0f,42f,0.18f,0.07f,0.70f,4,0.9f,2.2f,0.8f,1.4f,false,0f,1.0f,1.2f,3.5f,4.5f);
-            case 10: return new DifficultyProfile(10,7,115f,4.8f,false,true,15f,0.85f,45f,0.20f,0.04f,0.80f,3,0.8f,2.0f,0.7f,1.3f,false,0f,1.0f,1.0f,4.0f,5.0f);
-            default: return new DifficultyProfile(3,3,45f,2.6f,false,true,7f,2.0f,30f,0.12f,0.32f,0.35f,10,2.3f,4.3f,1.1f,2.1f,true,0.7f,1.0f,2.5f,1.4f,2.4f);
-        }
+        float d = currentDifficultyState;
+
+        float enemyPressure = Sigmoid(d * 0.95f);
+        float lethalityPressure = Sigmoid(d * 0.85f);
+        float coverRelief = Sigmoid(-d * 0.75f);
+
+        int enemyCount = Mathf.Clamp(Mathf.RoundToInt(2f + Mathf.Exp(Mathf.Clamp(d, -2f, 4f)) * 0.95f), 2, 24);
+        float enemyHealth = Mathf.Clamp(35f + (enemyPressure * 95f), 25f, 150f);
+        float enemyMoveSpeed = Mathf.Clamp(2.1f + (enemyPressure * 2.8f), 1.6f, 5.2f);
+
+        float enemyShotDamage = Mathf.Clamp(5.5f + (lethalityPressure * 9f), 4f, 15.5f);
+        float enemyFireCooldown = Mathf.Clamp(2.55f - (lethalityPressure * 1.75f), 0.75f, 2.8f);
+        float enemyShotRange = Mathf.Clamp(24f + (enemyPressure * 23f), 20f, 48f);
+        float enemyShotRadius = Mathf.Clamp(0.10f + (enemyPressure * 0.11f), 0.08f, 0.24f);
+        float enemyShotSpread = Mathf.Clamp(0.50f - (enemyPressure * 0.42f), 0.04f, 0.58f);
+        float peekDamageChance = Mathf.Clamp(0.18f + (lethalityPressure * 0.64f), 0.08f, 0.86f);
+
+        int coverCount = Mathf.Clamp(Mathf.RoundToInt(12f - (enemyPressure * 9f) + (coverRelief * 4f)), 3, 16);
+        float coverMinSize = Mathf.Clamp(0.9f + (coverRelief * 1.8f), 0.8f, 3.2f);
+        float coverMaxSize = Mathf.Clamp(2.4f + (coverRelief * 2.8f), 1.8f, 5.8f);
+        float coverMinHeight = Mathf.Clamp(0.8f + (coverRelief * 0.55f), 0.7f, 1.5f);
+        float coverMaxHeight = Mathf.Clamp(1.3f + (coverRelief * 1.35f), 1.0f, 2.8f);
+
+        bool sideCoverEnabled = d < 2.1f;
+        float sideCoverContinuity = Mathf.Clamp(0.96f - (enemyPressure * 0.88f), 0f, 1f);
+        float sideCoverHeight = Mathf.Clamp(1.0f + (coverRelief * 0.55f), 0.9f, 1.7f);
+        float sideCoverSegmentLength = Mathf.Clamp(3.0f - (enemyPressure * 2.1f), 0.9f, 3.2f);
+        float sideCoverGapMin = Mathf.Clamp(0.75f + (enemyPressure * 3.1f), 0.6f, 4.2f);
+        float sideCoverGapMax = Mathf.Clamp(1.7f + (enemyPressure * 3.8f), 1.2f, 5.0f);
+
+        return new DifficultyProfile(
+            d,
+            enemyCount,
+            enemyHealth,
+            enemyMoveSpeed,
+            true,
+            true,
+            enemyShotDamage,
+            enemyFireCooldown,
+            enemyShotRange,
+            enemyShotRadius,
+            enemyShotSpread,
+            peekDamageChance,
+            coverCount,
+            coverMinSize,
+            coverMaxSize,
+            coverMinHeight,
+            coverMaxHeight,
+            sideCoverEnabled,
+            sideCoverContinuity,
+            sideCoverHeight,
+            sideCoverSegmentLength,
+            sideCoverGapMin,
+            sideCoverGapMax
+        );
     }
 
     public DifficultyAnalysisResult AnalyseSectionPerformance(SectionMetrics metrics)
     {
-        int oldDifficulty = currentDifficultyScore;
+        float oldDifficulty = currentDifficultyState;
         int flowScore = 0;
 
         string healthResult = EvaluateHealthLost(metrics.playerHealthLost, ref flowScore);
@@ -81,21 +125,22 @@ public class DifficultyManager : MonoBehaviour
         string ttkResult = EvaluateTTK(metrics.averageEnemyTimeToKill, ref flowScore);
 
         string overallResult = "Flow Zone";
-        int proposedDifficulty = oldDifficulty;
+        if (flowScore < 0) { overallResult = "Too Easy"; }
+        else if (flowScore > 0) { overallResult = "Too Hard"; }
 
-        if (flowScore <= tooEasyScoreThreshold) { proposedDifficulty++; overallResult = "Too Easy"; }
-        else if (flowScore >= tooHardScoreThreshold) { proposedDifficulty--; overallResult = "Too Hard"; }
-
-        int newDifficulty = Mathf.Clamp(proposedDifficulty, minDifficultyScore, maxDifficultyScore);
+        float rawDelta = (-flowScore * adaptationGain) - (meanReversion * oldDifficulty);
+        float delta = Mathf.Clamp(rawDelta, -maxStepPerSection, maxStepPerSection);
+        float newDifficulty = oldDifficulty;
 
         if (adaptiveDifficultyEnabled)
         {
-            currentDifficultyScore = newDifficulty;
+            newDifficulty = oldDifficulty + delta;
+            currentDifficultyState = newDifficulty;
         }
 
         DifficultyAnalysisResult result = new DifficultyAnalysisResult();
-        result.difficultyBefore = oldDifficulty;
-        result.difficultyAfter = adaptiveDifficultyEnabled ? currentDifficultyScore : oldDifficulty;
+        result.difficultyStateBefore = oldDifficulty;
+        result.difficultyStateAfter = adaptiveDifficultyEnabled ? currentDifficultyState : oldDifficulty;
         result.flowScore = flowScore;
         result.flowResult = overallResult;
         result.healthRating = healthResult;
@@ -116,15 +161,49 @@ public class DifficultyManager : MonoBehaviour
                 "\nFlow Score: " + flowScore +
                 "\nOverall Result: " + overallResult +
                 "\nAdaptive Enabled: " + adaptiveDifficultyEnabled +
-                "\nDifficulty: " + oldDifficulty + " -> " + result.difficultyAfter
+                "\nDifficulty State: " + oldDifficulty.ToString("F2") + " -> " + result.difficultyStateAfter.ToString("F2") +
+                "\nDelta (raw/clamped): " + rawDelta.ToString("F3") + " / " + delta.ToString("F3")
             );
         }
 
         return result;
     }
 
-    private string EvaluateHealthLost(float healthLost, ref int flowScore){ if (healthLost <= healthLostTooEasyMax){ flowScore -= healthLostWeight; return "Too Easy"; } if (healthLost >= healthLostTooHardMin){ flowScore += healthLostWeight; return "Too Hard"; } if (healthLost >= healthLostFlowMin && healthLost <= healthLostFlowMax){ return "Flow Zone"; } return "Borderline"; }
-    private string EvaluateCompletionTime(float completionTime, ref int flowScore){ if (completionTime <= completionTooFastMax){ flowScore -= completionTimeWeight; return "Too Easy"; } if (completionTime >= completionTooSlowMin){ flowScore += completionTimeWeight; return "Too Hard"; } if (completionTime >= completionFlowMin && completionTime <= completionFlowMax){ return "Flow Zone"; } return "Borderline"; }
-    private string EvaluateAccuracy(float accuracy, ref int flowScore){ if (accuracy >= accuracyTooHighMin){ flowScore -= accuracyWeight; return "Too Easy"; } if (accuracy <= accuracyTooLowMax){ flowScore += accuracyWeight; return "Too Hard"; } if (accuracy >= accuracyFlowMin && accuracy <= accuracyFlowMax){ return "Flow Zone"; } return "Borderline"; }
-    private string EvaluateTTK(float averageTTK, ref int flowScore){ if (averageTTK <= 0f){ return "No Data"; } if (averageTTK <= ttkTooFastMax){ flowScore -= ttkWeight; return "Too Easy"; } if (averageTTK >= ttkTooSlowMin){ flowScore += ttkWeight; return "Too Hard"; } if (averageTTK >= ttkFlowMin && averageTTK <= ttkFlowMax){ return "Flow Zone"; } return "Borderline"; }
+    private float Sigmoid(float x)
+    {
+        return 1f / (1f + Mathf.Exp(-x));
+    }
+
+    private string EvaluateHealthLost(float healthLost, ref int flowScore)
+    {
+        if (healthLost <= healthLostTooEasyMax) { flowScore -= healthLostWeight; return "Too Easy"; }
+        if (healthLost >= healthLostTooHardMin) { flowScore += healthLostWeight; return "Too Hard"; }
+        if (healthLost >= healthLostFlowMin && healthLost <= healthLostFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
+
+    private string EvaluateCompletionTime(float completionTime, ref int flowScore)
+    {
+        if (completionTime <= completionTooFastMax) { flowScore -= completionTimeWeight; return "Too Easy"; }
+        if (completionTime >= completionTooSlowMin) { flowScore += completionTimeWeight; return "Too Hard"; }
+        if (completionTime >= completionFlowMin && completionTime <= completionFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
+
+    private string EvaluateAccuracy(float accuracy, ref int flowScore)
+    {
+        if (accuracy >= accuracyTooHighMin) { flowScore -= accuracyWeight; return "Too Easy"; }
+        if (accuracy <= accuracyTooLowMax) { flowScore += accuracyWeight; return "Too Hard"; }
+        if (accuracy >= accuracyFlowMin && accuracy <= accuracyFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
+
+    private string EvaluateTTK(float averageTTK, ref int flowScore)
+    {
+        if (averageTTK <= 0f) { return "No Data"; }
+        if (averageTTK <= ttkTooFastMax) { flowScore -= ttkWeight; return "Too Easy"; }
+        if (averageTTK >= ttkTooSlowMin) { flowScore += ttkWeight; return "Too Hard"; }
+        if (averageTTK >= ttkFlowMin && averageTTK <= ttkFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
 }
