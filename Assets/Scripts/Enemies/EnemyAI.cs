@@ -51,11 +51,15 @@ public class EnemyAI : MonoBehaviour
     private bool wasSeeingPlayerLastFrame;
     private bool isSearchingLastKnownPosition;
 
+    // Simple fallback patrol anchor when no patrol points are configured.
+    private Vector3 defaultPatrolAnchor;
+
     private void Awake()
     {
         navMeshAgent = GetComponent<NavMeshAgent>();
         navMeshAgent.speed = moveSpeed;
         navMeshAgent.stoppingDistance = stopDistance;
+        defaultPatrolAnchor = transform.position;
 
         enemyLineOfSight = GetComponent<EnemyLineOfSight>();
 
@@ -77,17 +81,36 @@ public class EnemyAI : MonoBehaviour
         {
             case MovementMode.Stationary:
                 navMeshAgent.isStopped = true;
-                FacePlayer();
+
+                // Only look at player when detected if LOS is available.
+                if (enemyLineOfSight == null || enemyLineOfSight.player == null || enemyLineOfSight.CanSeePlayer)
+                {
+                    FacePlayer();
+                }
                 break;
 
             case MovementMode.Patrol:
-                UpdatePatrolMovement();
+                UpdatePatrolOrLookMovement();
                 break;
 
             case MovementMode.ChasePlayer:
                 UpdateChaseMovement();
                 break;
         }
+    }
+
+
+    private void UpdatePatrolOrLookMovement()
+    {
+        // If LOS exists and the player is visible, stop and look so shooters can fire.
+        if (enemyLineOfSight != null && enemyLineOfSight.player != null && enemyLineOfSight.CanSeePlayer)
+        {
+            navMeshAgent.isStopped = true;
+            FacePlayer();
+            return;
+        }
+
+        UpdatePatrolMovement();
     }
 
     private void UpdateChaseMovement()
@@ -162,8 +185,16 @@ public class EnemyAI : MonoBehaviour
     {
         if (patrolPoints.Count == 0)
         {
-            navMeshAgent.isStopped = true;
-            FacePlayer();
+            // No patrol route assigned: move back to spawn anchor as a simple patrol fallback.
+            navMeshAgent.isStopped = false;
+            navMeshAgent.stoppingDistance = 0f;
+            navMeshAgent.SetDestination(defaultPatrolAnchor);
+
+            if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance <= patrolPointReachedDistance)
+            {
+                navMeshAgent.isStopped = true;
+            }
+
             return;
         }
 
@@ -218,6 +249,8 @@ public class EnemyAI : MonoBehaviour
         }
 
         currentPatrolIndex = 0;
+
+        defaultPatrolAnchor = transform.position;
 
         hasLastKnownPlayerPosition = false;
         wasSeeingPlayerLastFrame = false;
