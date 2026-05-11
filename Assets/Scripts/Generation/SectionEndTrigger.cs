@@ -58,7 +58,7 @@ public class SectionEndTrigger : MonoBehaviour
             string stealthRequirementFeedback = "Stealth requirements missing:" +
                 " undetected ratio " + undetectedRatio.ToString("P0") + "/" + requiredUndetectedRatio.ToString("P0") +
                 ", stealth kills " + owningSection.metrics.stealthKills + "/" + requiredStealthKills +
-                (requireZeroDetections ? ", detections " + owningSection.metrics.timesDetected + "/0" : "");
+                (requireZeroDetections ? ", detections " + owningSection.metrics.timesDetected + "/0" + " (detected time " + owningSection.metrics.timeDetected.ToString("F2") + "s)" : "");
 
             Debug.Log("Clear all enemies before progressing. " + stealthRequirementFeedback);
             return;

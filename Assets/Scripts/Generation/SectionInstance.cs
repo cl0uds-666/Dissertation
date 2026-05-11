@@ -157,8 +157,9 @@ public class SectionInstance : MonoBehaviour
     {
         float totalTrackedTime = metrics.timeDetected + metrics.timeUndetected;
         float undetectedRatio = totalTrackedTime > 0f ? metrics.timeUndetected / totalTrackedTime : 0f;
+        float clampedRequiredRatio = Mathf.Clamp01(requiredUndetectedRatio);
 
-        if (undetectedRatio < requiredUndetectedRatio)
+        if (undetectedRatio + 0.0001f < clampedRequiredRatio)
         {
             return false;
         }
@@ -168,9 +169,13 @@ public class SectionInstance : MonoBehaviour
             return false;
         }
 
-        if (requireZeroDetections && metrics.timesDetected > 0)
+        if (requireZeroDetections)
         {
-            return false;
+            bool hasAnyDetectionSignal = metrics.timesDetected > 0 || metrics.timeDetected > 0f || isPlayerDetected;
+            if (hasAnyDetectionSignal)
+            {
+                return false;
+            }
         }
 
         return true;
