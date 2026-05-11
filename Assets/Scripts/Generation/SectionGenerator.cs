@@ -68,6 +68,13 @@ public class SectionGenerator : MonoBehaviour
     public float playerSpawnClearRadius = 4f;
     public float edgePadding = 3f;
 
+
+    [Header("Stealth Progression Tuning")]
+    [SerializeField] private bool allowGhostClear = true;
+    [SerializeField, Range(0f, 1f)] private float requiredUndetectedRatio = 0.8f;
+    [SerializeField] private int requiredStealthKills = 2;
+    [SerializeField] private bool requireZeroDetections;
+
     [Header("Infinite Generation")]
     public int sectionsToSpawnAtStart = 1;
     public int maxSectionsKept = 4;
@@ -494,7 +501,7 @@ public class SectionGenerator : MonoBehaviour
         triggerCollider.isTrigger = true;
 
         SectionEndTrigger triggerScript = triggerObject.AddComponent<SectionEndTrigger>();
-        triggerScript.Setup(this, sectionInstance);
+        triggerScript.Setup(this, sectionInstance, allowGhostClear, requiredUndetectedRatio, requiredStealthKills, requireZeroDetections);
     }
 
     private int GenerateEnemies(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, List<Vector3> sectionPatrolPoints, out int shooterCount, out int chaserCount)
