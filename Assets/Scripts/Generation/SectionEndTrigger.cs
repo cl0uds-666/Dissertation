@@ -8,6 +8,12 @@ using UnityEngine;
 /// </summary>
 public class SectionEndTrigger : MonoBehaviour
 {
+    [Header("Stealth Progression Tuning")]
+    [SerializeField] private bool allowGhostClear = true;
+    [SerializeField, Range(0f, 1f)] private float requiredUndetectedRatio = 0.8f;
+    [SerializeField] private int requiredStealthKills = 2;
+    [SerializeField] private bool requireZeroDetections;
+
     private SectionGenerator sectionGenerator;
 
     private SectionInstance owningSection;
@@ -41,13 +47,29 @@ public class SectionEndTrigger : MonoBehaviour
             return;
         }
 
-        if (!owningSection.CanProgress())
+        bool canProgressViaCombatClear = owningSection.CanProgress();
+        bool canProgressViaStealth = allowGhostClear && owningSection.CanProgressViaStealth(requiredUndetectedRatio, requiredStealthKills, requireZeroDetections);
+
+        if (!canProgressViaCombatClear && !canProgressViaStealth)
         {
-            Debug.Log("Clear all enemies before progressing.");
+            float totalTrackedTime = owningSection.metrics.timeDetected + owningSection.metrics.timeUndetected;
+            float undetectedRatio = totalTrackedTime > 0f ? owningSection.metrics.timeUndetected / totalTrackedTime : 0f;
+
+            string stealthRequirementFeedback = "Stealth requirements missing:" +
+                " undetected ratio " + undetectedRatio.ToString("P0") + "/" + requiredUndetectedRatio.ToString("P0") +
+                ", stealth kills " + owningSection.metrics.stealthKills + "/" + requiredStealthKills +
+                (requireZeroDetections ? ", detections " + owningSection.metrics.timesDetected + "/0" : "");
+
+            Debug.Log("Clear all enemies before progressing. " + stealthRequirementFeedback);
             return;
         }
 
         hasBeenTriggered = true;
+
+        if (canProgressViaStealth && !canProgressViaCombatClear)
+        {
+            Debug.Log("Ghost Clear achieved in Section " + owningSection.sectionIndex);
+        }
 
         Debug.Log("Progressing from Section " + owningSection.sectionIndex);
 

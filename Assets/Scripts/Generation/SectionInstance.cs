@@ -152,5 +152,29 @@ public class SectionInstance : MonoBehaviour
         }
     }
 
+
+    public bool CanProgressViaStealth(float requiredUndetectedRatio, int requiredStealthKills, bool requireZeroDetections)
+    {
+        float totalTrackedTime = metrics.timeDetected + metrics.timeUndetected;
+        float undetectedRatio = totalTrackedTime > 0f ? metrics.timeUndetected / totalTrackedTime : 0f;
+
+        if (undetectedRatio < requiredUndetectedRatio)
+        {
+            return false;
+        }
+
+        if (metrics.stealthKills < requiredStealthKills)
+        {
+            return false;
+        }
+
+        if (requireZeroDetections && metrics.timesDetected > 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public bool CanProgress(){ return sectionCleared; }
 }
