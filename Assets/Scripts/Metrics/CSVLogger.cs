@@ -17,6 +17,7 @@ public class CSVLogger : MonoBehaviour
     private static readonly object FileWriteLock = new object();
 
     private string filePath;
+    private bool headerValidated;
 
     private void Awake()
     {
@@ -32,7 +33,7 @@ public class CSVLogger : MonoBehaviour
 
         filePath = Path.Combine(Application.persistentDataPath, FileName);
         EnsureFileExistsWithHeader();
-        EnsureHeaderContainsAllColumns();
+        ValidateHeaderOnce();
     }
 
     private void EnsureFileExistsWithHeader()
@@ -65,7 +66,18 @@ public class CSVLogger : MonoBehaviour
             "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
     }
 
-    private void EnsureHeaderContainsAllColumns()
+    private void ValidateHeaderOnce(bool forceMigration = false)
+    {
+        if (headerValidated && !forceMigration)
+        {
+            return;
+        }
+
+        MigrateHeaderIfNeeded();
+        headerValidated = true;
+    }
+
+    private void MigrateHeaderIfNeeded()
     {
         string expectedHeader = GetCsvHeader();
 
@@ -107,7 +119,6 @@ public class CSVLogger : MonoBehaviour
         }
 
         EnsureFileExistsWithHeader();
-        EnsureHeaderContainsAllColumns();
 
         StringBuilder row = new StringBuilder();
 
