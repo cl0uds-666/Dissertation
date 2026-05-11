@@ -70,6 +70,16 @@ public class SectionInstance : MonoBehaviour
         UpdateDetectionMetrics();
     }
 
+    private EnemyLineOfSight[] GetSectionEnemyLineOfSight()
+    {
+        if (sectionEnemyLineOfSight == null || sectionEnemyLineOfSight.Length == 0)
+        {
+            sectionEnemyLineOfSight = GetComponentsInChildren<EnemyLineOfSight>(true);
+        }
+
+        return sectionEnemyLineOfSight;
+    }
+
     private void UpdateDetectionMetrics()
     {
         bool detectedThisFrame = IsAnyLivingEnemySeeingPlayer();
@@ -94,9 +104,11 @@ public class SectionInstance : MonoBehaviour
 
     private bool IsAnyLivingEnemySeeingPlayer()
     {
-        for (int i = 0; i < sectionEnemyLineOfSight.Length; i++)
+        EnemyLineOfSight[] lineOfSightComponents = GetSectionEnemyLineOfSight();
+
+        for (int i = 0; i < lineOfSightComponents.Length; i++)
         {
-            EnemyLineOfSight lineOfSight = sectionEnemyLineOfSight[i];
+            EnemyLineOfSight lineOfSight = lineOfSightComponents[i];
 
             if (lineOfSight == null)
             {
@@ -153,6 +165,34 @@ public class SectionInstance : MonoBehaviour
     }
 
 
+    private bool HasAnyLivingEnemyEverSeenPlayer()
+    {
+        EnemyLineOfSight[] lineOfSightComponents = GetSectionEnemyLineOfSight();
+
+        for (int i = 0; i < lineOfSightComponents.Length; i++)
+        {
+            EnemyLineOfSight lineOfSight = lineOfSightComponents[i];
+
+            if (lineOfSight == null)
+            {
+                continue;
+            }
+
+            EnemyHealth enemyHealth = lineOfSight.GetComponent<EnemyHealth>();
+            if (enemyHealth != null && enemyHealth.IsDead)
+            {
+                continue;
+            }
+
+            if (lineOfSight.HasEverSeenPlayer)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public bool CanProgressViaStealth(float requiredUndetectedRatio, int requiredStealthKills, bool requireZeroDetections)
     {
         float totalTrackedTime = metrics.timeDetected + metrics.timeUndetected;
@@ -171,7 +211,7 @@ public class SectionInstance : MonoBehaviour
 
         if (requireZeroDetections)
         {
-            bool hasAnyDetectionSignal = metrics.timesDetected > 0 || metrics.timeDetected > 0f || isPlayerDetected;
+            bool hasAnyDetectionSignal = metrics.timesDetected > 0 || metrics.timeDetected > 0f || isPlayerDetected || HasAnyLivingEnemyEverSeenPlayer();
             if (hasAnyDetectionSignal)
             {
                 return false;
