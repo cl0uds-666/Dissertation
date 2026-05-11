@@ -94,6 +94,17 @@ public class DifficultyManager : MonoBehaviour
     [Range(0f, 1f)] public float stealthPressureState;
     [Range(0f, 1f)] public float stealthPressureGain = 0.35f;
     [Range(0f, 1f)] public float stealthPressureDecay = 0.2f;
+    [Range(0f, 1f)] public float stealthPressureNeutral = 0.25f;
+    [Range(0f, 1f)] public float stealthPressureNeutralDecay = 0.08f;
+    [Range(0f, 1f)] public float maxAffordanceStepPerSection = 0.12f;
+    public int minimumViableCoverCount = 4;
+    [Range(0f, 1f)] public float minimumTallCoverAvailability = 0.2f;
+
+    private bool hasLastAffordanceProfile;
+    private float lastStealthCoverMinHeight;
+    private float lastStealthCoverMaxHeight;
+    private float lastTallCoverFraction;
+    private float lastSideContinuityCap;
 
     private readonly System.Collections.Generic.List<float> healthLostHistory = new System.Collections.Generic.List<float>();
     private readonly System.Collections.Generic.List<float> completionTimeHistory = new System.Collections.Generic.List<float>();
@@ -122,7 +133,7 @@ public class DifficultyManager : MonoBehaviour
         float enemyShotSpread = Mathf.Clamp(0.50f - (enemyPressure * 0.42f), 0.04f, 0.58f);
         float peekDamageChance = Mathf.Clamp(0.18f + (lethalityPressure * 0.64f), 0.08f, 0.86f);
 
-        int coverCount = Mathf.Clamp(Mathf.RoundToInt(12f - (enemyPressure * 9f) + (coverRelief * 4f)), 3, 16);
+        int coverCount = Mathf.Clamp(Mathf.RoundToInt(12f - (enemyPressure * 9f) + (coverRelief * 4f)), Mathf.Max(1, minimumViableCoverCount), 16);
         float coverMinSize = Mathf.Clamp(0.9f + (coverRelief * 1.8f), 0.8f, 3.2f);
         float coverMaxSize = Mathf.Clamp(2.4f + (coverRelief * 2.8f), 1.8f, 5.8f);
         float coverMinHeight = Mathf.Clamp(0.8f + (coverRelief * 0.55f), 0.7f, 1.5f);
@@ -134,14 +145,21 @@ public class DifficultyManager : MonoBehaviour
         float sideCoverSegmentLength = Mathf.Clamp(3.0f - (enemyPressure * 2.1f), 0.9f, 3.2f);
         float sideCoverGapMin = Mathf.Clamp(0.75f + (enemyPressure * 3.1f), 0.6f, 4.2f);
         float sideCoverGapMax = Mathf.Clamp(1.7f + (enemyPressure * 3.8f), 1.2f, 5.0f);
-        float stealthCoverMinHeight = Mathf.Clamp(1.15f - (activeStealthPressure * 0.45f), 0.7f, 1.25f);
-        float stealthCoverMaxHeight = Mathf.Clamp(1.55f - (activeStealthPressure * 0.55f), 0.95f, 1.65f);
-        float maxTallCoverFraction = Mathf.Clamp01(0.72f - (activeStealthPressure * 0.60f));
-        float sideContinuityCap = Mathf.Clamp01(0.95f - (activeStealthPressure * 0.55f));
+        float targetStealthCoverMinHeight = Mathf.Clamp(1.15f - (activeStealthPressure * 0.45f), 0.7f, 1.25f);
+        float targetStealthCoverMaxHeight = Mathf.Clamp(1.55f - (activeStealthPressure * 0.55f), 0.95f, 1.65f);
+        float targetTallCoverFraction = Mathf.Clamp01(0.72f - (activeStealthPressure * 0.60f));
+        float targetSideContinuityCap = Mathf.Clamp01(0.95f - (activeStealthPressure * 0.55f));
         float enemyVisionRangeMultiplier = Mathf.Clamp(1f + (activeStealthPressure * 0.35f), 1f, 1.35f);
         float enemyVisionAngleMultiplier = Mathf.Clamp(1f + (activeStealthPressure * 0.22f), 1f, 1.22f);
 
-        return new DifficultyProfile(
+        float step = Mathf.Clamp01(maxAffordanceStepPerSection);
+        float stealthCoverMinHeight = hasLastAffordanceProfile ? Mathf.Lerp(lastStealthCoverMinHeight, targetStealthCoverMinHeight, step) : targetStealthCoverMinHeight;
+        float stealthCoverMaxHeight = hasLastAffordanceProfile ? Mathf.Lerp(lastStealthCoverMaxHeight, targetStealthCoverMaxHeight, step) : targetStealthCoverMaxHeight;
+        float maxTallCoverFraction = hasLastAffordanceProfile ? Mathf.Lerp(lastTallCoverFraction, targetTallCoverFraction, step) : targetTallCoverFraction;
+        float sideContinuityCap = hasLastAffordanceProfile ? Mathf.Lerp(lastSideContinuityCap, targetSideContinuityCap, step) : targetSideContinuityCap;
+        maxTallCoverFraction = Mathf.Max(Mathf.Clamp01(minimumTallCoverAvailability), Mathf.Clamp01(maxTallCoverFraction));
+
+        DifficultyProfile profile = new DifficultyProfile(
             d,
             enemyCount,
             enemyHealth,
@@ -172,6 +190,24 @@ public class DifficultyManager : MonoBehaviour
             enemyVisionRangeMultiplier,
             enemyVisionAngleMultiplier
         );
+
+        if (logDifficultyChanges)
+        {
+            Debug.Log(
+                "Affordance Shaping" +
+                "\nCoverCount: " + coverCount +
+                "\nHeightBand target/current: [" + targetStealthCoverMinHeight.ToString("F2") + ", " + targetStealthCoverMaxHeight.ToString("F2") + "] -> [" + stealthCoverMinHeight.ToString("F2") + ", " + stealthCoverMaxHeight.ToString("F2") + "]" +
+                "\nSideContinuityCap target/current: " + targetSideContinuityCap.ToString("F2") + " -> " + sideContinuityCap.ToString("F2") +
+                "\nTallCoverFraction target/current: " + targetTallCoverFraction.ToString("F2") + " -> " + maxTallCoverFraction.ToString("F2")
+            );
+        }
+
+        hasLastAffordanceProfile = true;
+        lastStealthCoverMinHeight = stealthCoverMinHeight;
+        lastStealthCoverMaxHeight = stealthCoverMaxHeight;
+        lastTallCoverFraction = maxTallCoverFraction;
+        lastSideContinuityCap = sideContinuityCap;
+        return profile;
     }
 
     public DifficultyAnalysisResult AnalyseSectionPerformance(SectionMetrics metrics)
@@ -213,6 +249,11 @@ public class DifficultyManager : MonoBehaviour
             accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
             ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
             stealthPressureState = Mathf.Lerp(stealthPressureState, 0f, Mathf.Clamp01(stealthPressureDecay));
+        }
+
+        if (!playstyle.isStealth)
+        {
+            stealthPressureState = Mathf.Lerp(stealthPressureState, Mathf.Clamp01(stealthPressureNeutral), Mathf.Clamp01(stealthPressureNeutralDecay));
         }
 
         string overallResult = "Flow Zone";
