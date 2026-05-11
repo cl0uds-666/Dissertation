@@ -57,6 +57,10 @@ public class SectionGenerator : MonoBehaviour
     public int enemyCount = 3;
     public float enemyMoveSpeed = 3f;
     public float enemySpawnClearRadius = 6f;
+    [Min(2)] public int patrolPointCountMin = 4;
+    [Min(2)] public int patrolPointCountMax = 8;
+    [Min(2)] public int patrolRoutePointsPerEnemyMin = 3;
+    [Min(2)] public int patrolRoutePointsPerEnemyMax = 6;
 
     [Tooltip("How much empty space is required around an enemy spawn point.")]
     public float enemySpawnCheckRadius = 1.2f;
@@ -573,7 +577,9 @@ public class SectionGenerator : MonoBehaviour
                     movementMode = EnemyAI.MovementMode.Patrol;
                 }
 
-                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol ? sectionPatrolPoints : null;
+                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol
+                    ? BuildPatrolRouteForEnemy(sectionPatrolPoints, i)
+                    : null;
 
                 enemyAI.Setup(player, generatedEnemySpeed, movementMode, patrolPointsForEnemy);
 
@@ -736,7 +742,9 @@ public class SectionGenerator : MonoBehaviour
     {
         List<Vector3> points = new List<Vector3>();
 
-        int pointCount = Random.Range(2, 5);
+        int minCount = Mathf.Max(2, patrolPointCountMin);
+        int maxCountExclusive = Mathf.Max(minCount + 1, patrolPointCountMax + 1);
+        int pointCount = Random.Range(minCount, maxCountExclusive);
 
         for (int i = 0; i < pointCount; i++)
         {
@@ -747,6 +755,41 @@ public class SectionGenerator : MonoBehaviour
         }
 
         return points;
+    }
+
+    private List<Vector3> BuildPatrolRouteForEnemy(List<Vector3> sectionPatrolPoints, int enemyIndex)
+    {
+        List<Vector3> route = new List<Vector3>();
+        if (sectionPatrolPoints == null || sectionPatrolPoints.Count == 0)
+        {
+            return route;
+        }
+
+        int minRoute = Mathf.Max(2, patrolRoutePointsPerEnemyMin);
+        int maxRoute = Mathf.Max(minRoute, patrolRoutePointsPerEnemyMax);
+        int targetCount = Mathf.Clamp(Random.Range(minRoute, maxRoute + 1), 2, sectionPatrolPoints.Count);
+
+        int startOffset = enemyIndex % sectionPatrolPoints.Count;
+        int stride = 1 + ((enemyIndex * 2 + 1) % Mathf.Max(1, sectionPatrolPoints.Count - 1));
+
+        HashSet<int> used = new HashSet<int>();
+        for (int step = 0; step < sectionPatrolPoints.Count && route.Count < targetCount; step++)
+        {
+            int index = (startOffset + step * stride) % sectionPatrolPoints.Count;
+            if (!used.Add(index))
+            {
+                continue;
+            }
+
+            route.Add(sectionPatrolPoints[index]);
+        }
+
+        if (route.Count < 2)
+        {
+            route.Add(sectionPatrolPoints[(startOffset + 1) % sectionPatrolPoints.Count]);
+        }
+
+        return route;
     }
 
     private bool TryGetPatrolPoint(Vector3 sectionOrigin, out Vector3 patrolPoint, bool preferSidePoint)
