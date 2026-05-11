@@ -5,7 +5,8 @@ public enum DifficultyExperimentMode
     Adaptive,
     FixedEasy,
     FixedMedium,
-    FixedHard
+    FixedHard,
+    FixedImpossible
 }
 
 public static class GameModeSelection
@@ -35,6 +36,7 @@ public static class GameModeSelection
             case DifficultyExperimentMode.FixedEasy: return -1.0f;
             case DifficultyExperimentMode.FixedMedium: return 0.0f;
             case DifficultyExperimentMode.FixedHard: return 1.2f;
+            case DifficultyExperimentMode.FixedImpossible: return 2.4f;
             default: return 0.0f;
         }
     }

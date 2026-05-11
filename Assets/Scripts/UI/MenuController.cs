@@ -36,6 +36,7 @@ public class MenuController : MonoBehaviour
     public void SelectFixedEasyMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedEasy); }
     public void SelectFixedMediumMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedMedium); }
     public void SelectFixedHardMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedHard); }
+    public void SelectFixedImpossibleMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedImpossible); }
 
     public void OnDifficultyDropdownChanged(int optionIndex)
     {
@@ -45,6 +46,7 @@ public class MenuController : MonoBehaviour
             case 1: SelectFixedEasyMode(); break;
             case 2: SelectFixedMediumMode(); break;
             case 3: SelectFixedHardMode(); break;
+            case 4: SelectFixedImpossibleMode(); break;
             default: SelectAdaptiveMode(); break;
         }
     }
@@ -95,7 +97,8 @@ public class MenuController : MonoBehaviour
             "Adaptive",
             "Fixed Easy",
             "Fixed Medium",
-            "Fixed Hard"
+            "Fixed Hard",
+            "Fixed Impossible"
         });
         difficultyModeDropdown.value = 0;
         difficultyModeDropdown.RefreshShownValue();
