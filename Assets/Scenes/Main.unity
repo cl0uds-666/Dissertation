@@ -920,12 +920,20 @@ MonoBehaviour:
   enemyCount: 3
   enemyMoveSpeed: 3
   enemySpawnClearRadius: 6
+  patrolPointCountMin: 4
+  patrolPointCountMax: 8
+  patrolRoutePointsPerEnemyMin: 3
+  patrolRoutePointsPerEnemyMax: 6
   enemySpawnCheckRadius: 1.2
   enemySpawnBlockingLayers:
     serializedVersion: 2
     m_Bits: 4294967295
   playerSpawnClearRadius: 4
   edgePadding: 3
+  allowGhostClear: 1
+  requiredUndetectedRatio: 1
+  requiredStealthKills: 2
+  requireZeroDetections: 1
   sectionsToSpawnAtStart: 1
   maxSectionsKept: 4
 --- !u!114 &1982503339
@@ -980,7 +988,30 @@ MonoBehaviour:
   completionTimeWeight: 1
   accuracyWeight: 1
   ttkWeight: 1
+  stealthUndetectedWeight: 2
+  stealthDetectionWeight: 2
+  stealthKillWeight: 1
+  stealthUndetectedTooLowMax: 0.55
+  stealthUndetectedFlowMin: 0.75
+  stealthKillTooLowMax: 0.35
+  stealthKillFlowMin: 0.6
+  stealthDetectionTooHighMin: 0.6
+  stealthDetectionFlowMax: 0.3
   logDifficultyChanges: 1
+  stealthIntentUndetectedWeight: 0.5
+  stealthIntentKillWeight: 0.4
+  stealthIntentDetectionPenaltyWeight: 0.1
+  maxDetectionEventsPerSecond: 0.25
+  stealthEnterThreshold: 0.65
+  stealthExitThreshold: 0.55
+  stealthPressureState: 0
+  stealthPressureGain: 0.35
+  stealthPressureDecay: 0.2
+  stealthPressureNeutral: 0.25
+  stealthPressureNeutralDecay: 0.08
+  maxAffordanceStepPerSection: 0.12
+  minimumViableCoverCount: 4
+  minimumTallCoverAvailability: 0.2
 --- !u!114 &1982503341
 MonoBehaviour:
   m_ObjectHideFlags: 0

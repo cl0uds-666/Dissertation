@@ -22,4 +22,19 @@ public class DifficultyAnalysisResult
     public string completionTimeRating;
     public string accuracyRating;
     public string ttkRating;
+
+    [Header("Playstyle Classification")]
+    public string playstyleClassification;
+    public float stealthIntentScore;
+    public float undetectedRatio;
+    public float stealthKillRatio;
+    public float detectionPressure;
+
+    [Header("Scoring Branch")]
+    public string scoringBranchUsed;
+
+    [Header("Stealth Branch Ratings")]
+    public string stealthUndetectedRating;
+    public string stealthDetectionRating;
+    public string stealthKillRating;
 }
