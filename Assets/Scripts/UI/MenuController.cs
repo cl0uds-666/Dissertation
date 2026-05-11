@@ -24,8 +24,14 @@ public class MenuController : MonoBehaviour
             return;
         }
 
+        GameModeSelection.StartNewSession();
         SceneManager.LoadScene(gameplaySceneName);
     }
+
+    public void SelectAdaptiveMode() { GameModeSelection.SetMode(DifficultyExperimentMode.Adaptive); }
+    public void SelectFixedEasyMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedEasy); }
+    public void SelectFixedMediumMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedMedium); }
+    public void SelectFixedHardMode() { GameModeSelection.SetMode(DifficultyExperimentMode.FixedHard); }
 
     public void OpenAbout()
     {
