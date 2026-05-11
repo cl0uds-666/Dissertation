@@ -154,10 +154,16 @@ public class SectionGenerator : MonoBehaviour
                 coverHeightRange.y,
                 true,
                 0.7f,
+                0.7f,
                 1.0f,
                 2.5f,
                 1.4f,
-                2.4f
+                2.4f,
+                coverHeightRange.x,
+                coverHeightRange.y,
+                0.7f,
+                1f,
+                1f
             );
         }
 
@@ -338,7 +344,8 @@ public class SectionGenerator : MonoBehaviour
         while (currentZ < zEnd)
         {
             float segmentLength = Mathf.Max(0.5f, currentProfile.sideCoverSegmentLength);
-            bool placeSegment = Random.value <= currentProfile.sideCoverContinuity;
+            float continuity = Mathf.Min(currentProfile.sideCoverContinuity, currentProfile.sideCoverContinuityCap);
+            bool placeSegment = Random.value <= continuity;
 
             if (placeSegment)
             {
@@ -389,12 +396,23 @@ public class SectionGenerator : MonoBehaviour
 
         float minSize = currentProfile != null ? currentProfile.coverMinSize : coverSizeXRange.x;
         float maxSize = currentProfile != null ? currentProfile.coverMaxSize : coverSizeXRange.y;
-        float minHeight = currentProfile != null ? currentProfile.coverMinHeight : coverHeightRange.x;
-        float maxHeight = currentProfile != null ? currentProfile.coverMaxHeight : coverHeightRange.y;
+        float minHeight = currentProfile != null ? Mathf.Max(currentProfile.coverMinHeight, currentProfile.targetCoverHeightMin) : coverHeightRange.x;
+        float maxHeight = currentProfile != null ? Mathf.Min(currentProfile.coverMaxHeight, currentProfile.targetCoverHeightMax) : coverHeightRange.y;
+        if (maxHeight < minHeight) { maxHeight = minHeight; }
 
         float randomX = Random.Range(minSize, maxSize);
         float randomZ = Random.Range(minSize, maxSize);
         float randomHeight = Random.Range(minHeight, maxHeight);
+        if (currentProfile != null)
+        {
+            float tallThreshold = Mathf.Lerp(minHeight, maxHeight, 0.68f);
+            bool wouldBeTall = randomHeight >= tallThreshold;
+            bool allowTall = Random.value <= Mathf.Clamp01(currentProfile.maxTallCoverFraction);
+            if (wouldBeTall && !allowTall)
+            {
+                randomHeight = Random.Range(minHeight, Mathf.Max(minHeight, tallThreshold));
+            }
+        }
 
         cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
         cover.transform.position = new Vector3(coverPosition.x, randomHeight / 2f, coverPosition.z);
@@ -580,6 +598,15 @@ public class SectionGenerator : MonoBehaviour
             if (enemyLineOfSight != null)
             {
                 enemyLineOfSight.Setup(player);
+                if (currentProfile != null)
+                {
+                    enemyLineOfSight.visionRange *= currentProfile.enemyVisionRangeMultiplier;
+                    enemyLineOfSight.visionAngle = Mathf.Clamp(
+                        enemyLineOfSight.visionAngle * currentProfile.enemyVisionAngleMultiplier,
+                        5f,
+                        360f
+                    );
+                }
             }
 
             EnemyShooter enemyShooter = enemy.GetComponent<EnemyShooter>();
