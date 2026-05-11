@@ -176,7 +176,7 @@ public class SectionGenerator : MonoBehaviour
         SectionInstance sectionInstance = sectionParent.AddComponent<SectionInstance>();
 
         GenerateFloor(sectionOrigin, sectionParent.transform);
-        GenerateWalls(sectionOrigin, sectionParent.transform);
+        GenerateWalls(sectionOrigin, sectionParent.transform, sectionInstance);
         GenerateCover(sectionOrigin, sectionParent.transform);
 
         NavMeshSurface navMeshSurface = sectionParent.AddComponent<NavMeshSurface>();
@@ -222,24 +222,27 @@ public class SectionGenerator : MonoBehaviour
         );
     }
 
-    private void GenerateWalls(Vector3 sectionOrigin, Transform parent)
+    private void GenerateWalls(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
     {
         float halfWidth = sectionWidth / 2f;
         float halfLength = sectionLength / 2f;
 
-        //CreateWall(
-        //    "Back Wall",
-        //    new Vector3(sectionOrigin.x, 1f, sectionOrigin.z - halfLength),
-        //    new Vector3(sectionWidth, 2f, 1f),
-        //    parent
-        //);
+        GameObject backWall = CreateWall(
+            "Back Wall",
+            new Vector3(sectionOrigin.x, 1f, sectionOrigin.z - halfLength),
+            new Vector3(sectionWidth, 2f, 1f),
+            parent
+        );
 
-        //CreateWall(
-        //    "Front Wall",
-        //    new Vector3(sectionOrigin.x, 1f, sectionOrigin.z + halfLength),
-        //    new Vector3(sectionWidth, 2f, 1f),
-        //    parent
-        //);
+        GameObject frontWall = CreateWall(
+            "Front Wall",
+            new Vector3(sectionOrigin.x, 1.5f, sectionOrigin.z + halfLength),
+            new Vector3(sectionWidth, 3f, 1f),
+            parent
+        );
+
+        sectionInstance.backWallObject = backWall;
+        sectionInstance.frontWallObject = frontWall;
 
         CreateWall(
             "Left Wall",
@@ -256,12 +259,13 @@ public class SectionGenerator : MonoBehaviour
         );
     }
 
-    private void CreateWall(string wallName, Vector3 position, Vector3 scale, Transform parent)
+    private GameObject CreateWall(string wallName, Vector3 position, Vector3 scale, Transform parent)
     {
         GameObject wall = Instantiate(wallPrefab, position, Quaternion.identity, parent);
 
         wall.name = wallName;
         wall.transform.localScale = scale;
+        return wall;
     }
 
     private void GenerateCover(Vector3 sectionOrigin, Transform parent)
@@ -755,6 +759,41 @@ public class SectionGenerator : MonoBehaviour
         Transform oldestSection = transform.GetChild(0);
 
         Destroy(oldestSection.gameObject);
+    }
+
+
+    public void ProgressToNextSection(SectionInstance completedSection)
+    {
+        if (completedSection == null)
+        {
+            SpawnNextSection();
+            return;
+        }
+
+        StartCoroutine(DropFrontWallThenSpawn(completedSection.frontWallObject));
+    }
+
+    private System.Collections.IEnumerator DropFrontWallThenSpawn(GameObject frontWall)
+    {
+        if (frontWall != null)
+        {
+            float duration = 0.65f;
+            float elapsed = 0f;
+            Vector3 start = frontWall.transform.position;
+            Vector3 end = start + Vector3.down * 5f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                frontWall.transform.position = Vector3.Lerp(start, end, t);
+                yield return null;
+            }
+
+            Destroy(frontWall);
+        }
+
+        SpawnNextSection();
     }
 
     public SectionInstance GetCurrentActiveSection()

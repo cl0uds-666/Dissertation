@@ -18,6 +18,10 @@ public class SectionInstance : MonoBehaviour
     [Header("Metrics")]
     public SectionMetrics metrics = new SectionMetrics();
 
+    [Header("Generated Walls")]
+    public GameObject frontWallObject;
+    public GameObject backWallObject;
+
     private PlayerHealth playerHealth;
     private DifficultyManager difficultyManager;
     private CSVLogger csvLogger;
