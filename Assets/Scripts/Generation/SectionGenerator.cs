@@ -106,7 +106,9 @@ public class SectionGenerator : MonoBehaviour
     {
         for (int i = 0; i < sectionsToSpawnAtStart; i++)
         {
-            SpawnNextSection();
+            yield return new WaitForSeconds(0.6f);
+
+        SpawnNextSection();
         }
     }
 
@@ -237,7 +239,7 @@ public class SectionGenerator : MonoBehaviour
         GameObject frontWall = CreateWall(
             "Front Wall",
             new Vector3(sectionOrigin.x, 1.5f, sectionOrigin.z + halfLength),
-            new Vector3(sectionWidth, 3f, 1f),
+            new Vector3(sectionWidth, 4f, 1f),
             parent
         );
 
@@ -777,7 +779,7 @@ public class SectionGenerator : MonoBehaviour
     {
         if (frontWall != null)
         {
-            float duration = 0.65f;
+            float duration = 1.35f;
             float elapsed = 0f;
             Vector3 start = frontWall.transform.position;
             Vector3 end = start + Vector3.down * 5f;
@@ -792,6 +794,8 @@ public class SectionGenerator : MonoBehaviour
 
             Destroy(frontWall);
         }
+
+        yield return new WaitForSeconds(0.6f);
 
         SpawnNextSection();
     }
