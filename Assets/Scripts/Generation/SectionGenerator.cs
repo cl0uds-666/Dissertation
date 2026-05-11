@@ -106,9 +106,7 @@ public class SectionGenerator : MonoBehaviour
     {
         for (int i = 0; i < sectionsToSpawnAtStart; i++)
         {
-            yield return new WaitForSeconds(0.6f);
-
-        SpawnNextSection();
+            SpawnNextSection();
         }
     }
 
