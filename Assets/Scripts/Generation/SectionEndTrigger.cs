@@ -53,7 +53,7 @@ public class SectionEndTrigger : MonoBehaviour
 
         if (sectionGenerator != null)
         {
-            sectionGenerator.SpawnNextSection();
+            sectionGenerator.ProgressToNextSection(owningSection);
         }
     }
 }
