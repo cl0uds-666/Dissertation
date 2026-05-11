@@ -57,6 +57,19 @@ public class DifficultyManager : MonoBehaviour
     public int accuracyWeight = 1;
     public int ttkWeight = 1;
 
+    [Header("Stealth Branch Weights")]
+    public int stealthUndetectedWeight = 2;
+    public int stealthDetectionWeight = 2;
+    public int stealthKillWeight = 1;
+
+    [Header("Stealth Branch Flow Zone")]
+    [Range(0f, 1f)] public float stealthUndetectedTooLowMax = 0.55f;
+    [Range(0f, 1f)] public float stealthUndetectedFlowMin = 0.75f;
+    [Range(0f, 1f)] public float stealthKillTooLowMax = 0.35f;
+    [Range(0f, 1f)] public float stealthKillFlowMin = 0.6f;
+    [Range(0f, 1f)] public float stealthDetectionTooHighMin = 0.6f;
+    [Range(0f, 1f)] public float stealthDetectionFlowMax = 0.3f;
+
     [Header("Debug")]
     public bool logDifficultyChanges = true;
 
@@ -157,10 +170,28 @@ public class DifficultyManager : MonoBehaviour
 
         PlaystyleSnapshot playstyle = ClassifyPlaystyle(metrics);
 
-        string healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
-        string timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
-        string accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
-        string ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
+        string healthResult = "Not Used";
+        string timeResult = "Not Used";
+        string accuracyResult = "Not Used";
+        string ttkResult = "Not Used";
+        string stealthUndetectedResult = "Not Used";
+        string stealthDetectionResult = "Not Used";
+        string stealthKillResult = "Not Used";
+        string scoringBranch = playstyle.isStealth ? "Stealth" : "Assault";
+
+        if (playstyle.isStealth)
+        {
+            stealthUndetectedResult = EvaluateStealthUndetected(playstyle.undetectedRatio, ref flowScore);
+            stealthDetectionResult = EvaluateStealthDetection(playstyle.detectionPressure, ref flowScore);
+            stealthKillResult = EvaluateStealthKill(playstyle.stealthKillRatio, ref flowScore);
+        }
+        else
+        {
+            healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
+            timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
+            accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
+            ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
+        }
 
         string overallResult = "Flow Zone";
         if (flowScore < 0) { overallResult = "Too Easy"; }
@@ -198,6 +229,10 @@ public class DifficultyManager : MonoBehaviour
         result.undetectedRatio = playstyle.undetectedRatio;
         result.stealthKillRatio = playstyle.stealthKillRatio;
         result.detectionPressure = playstyle.detectionPressure;
+        result.scoringBranchUsed = scoringBranch;
+        result.stealthUndetectedRating = stealthUndetectedResult;
+        result.stealthDetectionRating = stealthDetectionResult;
+        result.stealthKillRating = stealthKillResult;
 
         lastAnalysisResult = result;
 
@@ -216,6 +251,8 @@ public class DifficultyManager : MonoBehaviour
                 ", undetected " + playstyle.undetectedRatio.ToString("P0") +
                 ", stealth kills " + playstyle.stealthKillRatio.ToString("P0") +
                 ", detection pressure " + playstyle.detectionPressure.ToString("F2") + ")" +
+                "\nScoring Branch: " + scoringBranch +
+                "\nStealth Ratings: Undetected=" + stealthUndetectedResult + ", Detection=" + stealthDetectionResult + ", StealthKills=" + stealthKillResult +
                 "\nFlow Score: " + flowScore +
                 "\nOverall Result: " + overallResult +
                 "\nAdaptive Enabled: " + adaptiveDifficultyEnabled +
@@ -346,6 +383,27 @@ public class DifficultyManager : MonoBehaviour
         if (averageTTK <= ttkTooFastMax) { flowScore -= ttkWeight; return "Too Easy"; }
         if (averageTTK >= ttkTooSlowMin) { flowScore += ttkWeight; return "Too Hard"; }
         if (averageTTK >= ttkFlowMin && averageTTK <= ttkFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthUndetected(float undetectedRatio, ref int flowScore)
+    {
+        if (undetectedRatio <= stealthUndetectedTooLowMax) { flowScore += stealthUndetectedWeight; return "Too Hard"; }
+        if (undetectedRatio >= stealthUndetectedFlowMin) { flowScore -= stealthUndetectedWeight; return "Too Easy"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthDetection(float detectionPressure, ref int flowScore)
+    {
+        if (detectionPressure >= stealthDetectionTooHighMin) { flowScore += stealthDetectionWeight; return "Too Hard"; }
+        if (detectionPressure <= stealthDetectionFlowMax) { flowScore -= stealthDetectionWeight; return "Too Easy"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthKill(float stealthKillRatio, ref int flowScore)
+    {
+        if (stealthKillRatio <= stealthKillTooLowMax) { flowScore += stealthKillWeight; return "Too Hard"; }
+        if (stealthKillRatio >= stealthKillFlowMin) { flowScore -= stealthKillWeight; return "Too Easy"; }
         return "Borderline";
     }
 }

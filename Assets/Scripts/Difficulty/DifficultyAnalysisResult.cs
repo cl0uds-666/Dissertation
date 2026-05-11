@@ -29,4 +29,12 @@ public class DifficultyAnalysisResult
     public float undetectedRatio;
     public float stealthKillRatio;
     public float detectionPressure;
+
+    [Header("Scoring Branch")]
+    public string scoringBranchUsed;
+
+    [Header("Stealth Branch Ratings")]
+    public string stealthUndetectedRating;
+    public string stealthDetectionRating;
+    public string stealthKillRating;
 }
