@@ -176,7 +176,7 @@ public class SectionGenerator : MonoBehaviour
         SectionInstance sectionInstance = sectionParent.AddComponent<SectionInstance>();
 
         GenerateFloor(sectionOrigin, sectionParent.transform);
-        GenerateWalls(sectionOrigin, sectionParent.transform, sectionInstance);
+        GenerateWalls(sectionOrigin, sectionParent.transform, sectionInstance, sectionIndex);
         GenerateCover(sectionOrigin, sectionParent.transform);
 
         NavMeshSurface navMeshSurface = sectionParent.AddComponent<NavMeshSurface>();
@@ -196,6 +196,7 @@ public class SectionGenerator : MonoBehaviour
         sectionInstance.Setup(sectionIndex, spawnedEnemies, generatedCoverCount, shooterCount, chaserCount, playerHealth, difficultyManager, csvLogger);
 
         GenerateEndTrigger(sectionOrigin, sectionParent.transform, sectionInstance);
+        GenerateSectionEntryTrigger(sectionOrigin, sectionParent.transform, sectionInstance);
 
         // For now, the newly spawned section becomes the active metrics target.
         // This is fine because only one uncleared section exists at a time.
@@ -222,7 +223,7 @@ public class SectionGenerator : MonoBehaviour
         );
     }
 
-    private void GenerateWalls(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
+    private void GenerateWalls(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance, int sectionIndex)
     {
         float halfWidth = sectionWidth / 2f;
         float halfLength = sectionLength / 2f;
@@ -240,6 +241,9 @@ public class SectionGenerator : MonoBehaviour
             new Vector3(sectionWidth, 4f, 1f),
             parent
         );
+
+        bool backWallStartsActive = sectionIndex == 0;
+        backWall.SetActive(backWallStartsActive);
 
         sectionInstance.backWallObject = backWall;
         sectionInstance.frontWallObject = frontWall;
@@ -749,6 +753,27 @@ public class SectionGenerator : MonoBehaviour
         return false;
     }
 
+    private void GenerateSectionEntryTrigger(Vector3 sectionOrigin, Transform parent, SectionInstance sectionInstance)
+    {
+        if (sectionInstance == null || sectionInstance.backWallObject == null || sectionInstance.sectionIndex == 0)
+        {
+            return;
+        }
+
+        float halfLength = sectionLength / 2f;
+
+        GameObject triggerObject = new GameObject("Section Entry Trigger");
+        triggerObject.transform.parent = parent;
+        triggerObject.transform.position = new Vector3(sectionOrigin.x, 1f, sectionOrigin.z - halfLength + 2.2f);
+        triggerObject.transform.localScale = new Vector3(sectionWidth - 2f, 2f, 2f);
+
+        BoxCollider triggerCollider = triggerObject.AddComponent<BoxCollider>();
+        triggerCollider.isTrigger = true;
+
+        SectionBackWallActivator activator = triggerObject.AddComponent<SectionBackWallActivator>();
+        activator.Setup(sectionInstance.backWallObject);
+    }
+
     private void CleanupOldSections()
     {
         if (transform.childCount <= maxSectionsKept)
@@ -764,16 +789,17 @@ public class SectionGenerator : MonoBehaviour
 
     public void ProgressToNextSection(SectionInstance completedSection)
     {
+        SpawnNextSection();
+
         if (completedSection == null)
         {
-            SpawnNextSection();
             return;
         }
 
-        StartCoroutine(DropFrontWallThenSpawn(completedSection.frontWallObject));
+        StartCoroutine(DropFrontWall(completedSection.frontWallObject));
     }
 
-    private System.Collections.IEnumerator DropFrontWallThenSpawn(GameObject frontWall)
+    private System.Collections.IEnumerator DropFrontWall(GameObject frontWall)
     {
         if (frontWall != null)
         {
@@ -792,14 +818,36 @@ public class SectionGenerator : MonoBehaviour
 
             Destroy(frontWall);
         }
-
-        yield return new WaitForSeconds(0.6f);
-
-        SpawnNextSection();
     }
 
     public SectionInstance GetCurrentActiveSection()
     {
         return currentActiveSection;
     }
+
+    private class SectionBackWallActivator : MonoBehaviour
+    {
+        private GameObject backWall;
+
+        public void Setup(GameObject wall)
+        {
+            backWall = wall;
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (!other.CompareTag("Player"))
+            {
+                return;
+            }
+
+            if (backWall != null && !backWall.activeSelf)
+            {
+                backWall.SetActive(true);
+            }
+
+            Destroy(gameObject);
+        }
+    }
+
 }
