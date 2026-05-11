@@ -8,11 +8,10 @@ using UnityEngine;
 /// </summary>
 public class SectionEndTrigger : MonoBehaviour
 {
-    [Header("Stealth Progression Tuning")]
-    [SerializeField] private bool allowGhostClear = true;
-    [SerializeField, Range(0f, 1f)] private float requiredUndetectedRatio = 0.8f;
-    [SerializeField] private int requiredStealthKills = 2;
-    [SerializeField] private bool requireZeroDetections;
+    private bool allowGhostClear = true;
+    private float requiredUndetectedRatio = 0.8f;
+    private int requiredStealthKills = 2;
+    private bool requireZeroDetections;
 
     private SectionGenerator sectionGenerator;
 
@@ -23,10 +22,14 @@ public class SectionEndTrigger : MonoBehaviour
     /// <summary>
     /// Called by SectionGenerator immediately after creating the trigger.
     /// </summary>
-    public void Setup(SectionGenerator generator, SectionInstance section)
+    public void Setup(SectionGenerator generator, SectionInstance section, bool allowGhost, float undetectedRatioRequirement, int stealthKillRequirement, bool requireNoDetections)
     {
         sectionGenerator = generator;
         owningSection = section;
+        allowGhostClear = allowGhost;
+        requiredUndetectedRatio = Mathf.Clamp01(undetectedRatioRequirement);
+        requiredStealthKills = Mathf.Max(0, stealthKillRequirement);
+        requireZeroDetections = requireNoDetections;
     }
 
     private void OnTriggerEnter(Collider other)
