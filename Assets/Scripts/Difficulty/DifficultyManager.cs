@@ -60,7 +60,24 @@ public class DifficultyManager : MonoBehaviour
     [Header("Debug")]
     public bool logDifficultyChanges = true;
 
+    [Header("Playstyle Classification")]
+    [Tooltip("Weight for undetected time share when inferring stealth intent.")]
+    public float stealthIntentUndetectedWeight = 0.5f;
+    [Tooltip("Weight for stealth kill share when inferring stealth intent.")]
+    public float stealthIntentKillWeight = 0.4f;
+    [Tooltip("Penalty weight for detection pressure when inferring stealth intent.")]
+    public float stealthIntentDetectionPenaltyWeight = 0.1f;
+    [Tooltip("Detection events per second that maps to maximum normalized detection pressure.")]
+    public float maxDetectionEventsPerSecond = 0.25f;
+    [Range(0f, 1f)]
+    [Tooltip("Enter stealth classification when score meets/exceeds this threshold.")]
+    public float stealthEnterThreshold = 0.65f;
+    [Range(0f, 1f)]
+    [Tooltip("Exit stealth classification when score drops below this threshold.")]
+    public float stealthExitThreshold = 0.55f;
+
     private DifficultyAnalysisResult lastAnalysisResult;
+    private bool wasClassifiedAsStealthLastSection;
 
     private readonly System.Collections.Generic.List<float> healthLostHistory = new System.Collections.Generic.List<float>();
     private readonly System.Collections.Generic.List<float> completionTimeHistory = new System.Collections.Generic.List<float>();
@@ -138,6 +155,8 @@ public class DifficultyManager : MonoBehaviour
         float smoothedAccuracy = GetSmoothedMetric(accuracyHistory, metrics.accuracyPercent);
         float smoothedTTK = GetSmoothedMetric(ttkHistory, metrics.averageEnemyTimeToKill);
 
+        PlaystyleSnapshot playstyle = ClassifyPlaystyle(metrics);
+
         string healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
         string timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
         string accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
@@ -174,6 +193,11 @@ public class DifficultyManager : MonoBehaviour
         result.completionTimeRating = timeResult;
         result.accuracyRating = accuracyResult;
         result.ttkRating = ttkResult;
+        result.playstyleClassification = playstyle.isStealth ? "Stealth" : "Non-Stealth";
+        result.stealthIntentScore = playstyle.stealthIntentScore;
+        result.undetectedRatio = playstyle.undetectedRatio;
+        result.stealthKillRatio = playstyle.stealthKillRatio;
+        result.detectionPressure = playstyle.detectionPressure;
 
         lastAnalysisResult = result;
 
@@ -187,6 +211,11 @@ public class DifficultyManager : MonoBehaviour
                 "\nAverage Enemy TTK: " + metrics.averageEnemyTimeToKill.ToString("F2") + "s -> " + ttkResult +
                 "\nSmoothed Metrics [N=" + Mathf.Max(1, smoothingWindow) + "]: HL=" + smoothedHealthLost.ToString("F1") + ", CT=" + smoothedCompletionTime.ToString("F2") + "s, ACC=" + smoothedAccuracy.ToString("F1") + "%, TTK=" + smoothedTTK.ToString("F2") + "s" +
                 "\nSmoothing Confidence: " + confidence.ToString("F2") +
+                "\nPlaystyle: " + result.playstyleClassification +
+                " (score " + playstyle.stealthIntentScore.ToString("F2") +
+                ", undetected " + playstyle.undetectedRatio.ToString("P0") +
+                ", stealth kills " + playstyle.stealthKillRatio.ToString("P0") +
+                ", detection pressure " + playstyle.detectionPressure.ToString("F2") + ")" +
                 "\nFlow Score: " + flowScore +
                 "\nOverall Result: " + overallResult +
                 "\nAdaptive Enabled: " + adaptiveDifficultyEnabled +
@@ -228,6 +257,58 @@ public class DifficultyManager : MonoBehaviour
         int samples = Mathf.Min(healthLostHistory.Count, Mathf.Min(completionTimeHistory.Count, Mathf.Min(accuracyHistory.Count, ttkHistory.Count)));
         float historyRatio = Mathf.Clamp01((float)samples / window);
         return Mathf.Lerp(Mathf.Clamp01(confidenceFloor), 1f, historyRatio);
+    }
+
+
+    private struct PlaystyleSnapshot
+    {
+        public bool isStealth;
+        public float stealthIntentScore;
+        public float undetectedRatio;
+        public float stealthKillRatio;
+        public float detectionPressure;
+    }
+
+    private PlaystyleSnapshot ClassifyPlaystyle(SectionMetrics metrics)
+    {
+        float totalTrackedTime = metrics.timeDetected + metrics.timeUndetected;
+        float undetectedRatio = totalTrackedTime > 0f ? metrics.timeUndetected / totalTrackedTime : 0f;
+
+        float stealthKillRatio = metrics.enemiesKilled > 0
+            ? (float)metrics.stealthKills / metrics.enemiesKilled
+            : 0f;
+
+        float completionTime = Mathf.Max(metrics.completionTime, 0.0001f);
+        float detectionRate = metrics.timesDetected / completionTime;
+        float normalizedDetectionPressure = maxDetectionEventsPerSecond > 0f
+            ? Mathf.Clamp01(detectionRate / maxDetectionEventsPerSecond)
+            : 1f;
+
+        float weightedScore =
+            (undetectedRatio * stealthIntentUndetectedWeight) +
+            (stealthKillRatio * stealthIntentKillWeight) -
+            (normalizedDetectionPressure * stealthIntentDetectionPenaltyWeight);
+
+        float totalWeight = Mathf.Max(0.0001f,
+            Mathf.Abs(stealthIntentUndetectedWeight) +
+            Mathf.Abs(stealthIntentKillWeight) +
+            Mathf.Abs(stealthIntentDetectionPenaltyWeight));
+
+        float stealthIntentScore = Mathf.Clamp01(weightedScore / totalWeight);
+
+        bool isStealth = wasClassifiedAsStealthLastSection
+            ? stealthIntentScore >= Mathf.Clamp01(stealthExitThreshold)
+            : stealthIntentScore >= Mathf.Clamp01(stealthEnterThreshold);
+
+        wasClassifiedAsStealthLastSection = isStealth;
+
+        PlaystyleSnapshot snapshot;
+        snapshot.isStealth = isStealth;
+        snapshot.stealthIntentScore = stealthIntentScore;
+        snapshot.undetectedRatio = undetectedRatio;
+        snapshot.stealthKillRatio = stealthKillRatio;
+        snapshot.detectionPressure = normalizedDetectionPressure;
+        return snapshot;
     }
 
     private float Sigmoid(float x)

@@ -22,4 +22,11 @@ public class DifficultyAnalysisResult
     public string completionTimeRating;
     public string accuracyRating;
     public string ttkRating;
+
+    [Header("Playstyle Classification")]
+    public string playstyleClassification;
+    public float stealthIntentScore;
+    public float undetectedRatio;
+    public float stealthKillRatio;
+    public float detectionPressure;
 }
