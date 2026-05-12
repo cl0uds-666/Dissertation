@@ -516,6 +516,7 @@ public class SectionGenerator : MonoBehaviour
         }
 
         int spawnedEnemyCount = 0;
+        HashSet<Vector3> reservedPatrolStarts = new HashSet<Vector3>();
 
         int generatedEnemyCount = currentProfile != null ? currentProfile.enemyCount : enemyCount;
 
@@ -555,7 +556,12 @@ public class SectionGenerator : MonoBehaviour
                     movementMode = EnemyAI.MovementMode.Patrol;
                 }
 
-                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol ? sectionPatrolPoints : null;
+                List<Vector3> patrolPointsForEnemy = null;
+
+                if (movementMode == EnemyAI.MovementMode.Patrol)
+                {
+                    patrolPointsForEnemy = GeneratePatrolPointsForEnemy(sectionOrigin, enemyPosition, sectionPatrolPoints, reservedPatrolStarts);
+                }
 
                 enemyAI.Setup(player, generatedEnemySpeed, movementMode, patrolPointsForEnemy);
 
@@ -720,6 +726,108 @@ public class SectionGenerator : MonoBehaviour
         }
 
         return points;
+    }
+
+    private List<Vector3> GeneratePatrolPointsForEnemy(
+        Vector3 sectionOrigin,
+        Vector3 enemyPosition,
+        List<Vector3> fallbackSectionPatrolPoints,
+        HashSet<Vector3> reservedPatrolStarts
+    )
+    {
+        List<Vector3> enemyPatrolPoints = new List<Vector3>();
+
+        int targetPointCount = Random.Range(2, 5);
+
+        for (int i = 0; i < targetPointCount; i++)
+        {
+            bool preferSidePoint = i % 2 == 0;
+
+            if (!TryGetPatrolPoint(sectionOrigin, out Vector3 patrolPoint, preferSidePoint))
+            {
+                continue;
+            }
+
+            // Avoid assigning a first waypoint that is too close to this enemy's spawn.
+            if (i == 0 && Vector3.Distance(enemyPosition, patrolPoint) < 2f)
+            {
+                continue;
+            }
+
+            if (enemyPatrolPoints.Contains(patrolPoint))
+            {
+                continue;
+            }
+
+            enemyPatrolPoints.Add(patrolPoint);
+        }
+
+        // Ensure a unique first point between patrol enemies in this section when possible.
+        if (enemyPatrolPoints.Count > 0 && reservedPatrolStarts.Contains(enemyPatrolPoints[0]))
+        {
+            bool foundUniqueStart = false;
+
+            for (int i = 0; i < enemyPatrolPoints.Count; i++)
+            {
+                Vector3 point = enemyPatrolPoints[i];
+                if (!reservedPatrolStarts.Contains(point) && Vector3.Distance(enemyPosition, point) >= 2f)
+                {
+                    enemyPatrolPoints.RemoveAt(i);
+                    enemyPatrolPoints.Insert(0, point);
+                    foundUniqueStart = true;
+                    break;
+                }
+            }
+
+            if (!foundUniqueStart)
+            {
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    if (TryGetPatrolPoint(sectionOrigin, out Vector3 alternateStart, true) &&
+                        !reservedPatrolStarts.Contains(alternateStart) &&
+                        Vector3.Distance(enemyPosition, alternateStart) >= 2f)
+                    {
+                        enemyPatrolPoints.Insert(0, alternateStart);
+                        foundUniqueStart = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (enemyPatrolPoints.Count < 2 && fallbackSectionPatrolPoints != null)
+        {
+            foreach (Vector3 point in fallbackSectionPatrolPoints)
+            {
+                if (enemyPatrolPoints.Contains(point))
+                {
+                    continue;
+                }
+
+                if (enemyPatrolPoints.Count == 0 && Vector3.Distance(enemyPosition, point) < 2f)
+                {
+                    continue;
+                }
+
+                enemyPatrolPoints.Add(point);
+
+                if (enemyPatrolPoints.Count >= 2)
+                {
+                    break;
+                }
+            }
+        }
+
+        // Absolute fallback route if point generation fails in cluttered layouts.
+        if (enemyPatrolPoints.Count < 2)
+        {
+            enemyPatrolPoints.Clear();
+            enemyPatrolPoints.Add(enemyPosition + new Vector3(2f, 0f, 2f));
+            enemyPatrolPoints.Add(enemyPosition + new Vector3(-2f, 0f, -2f));
+        }
+
+        reservedPatrolStarts.Add(enemyPatrolPoints[0]);
+        return enemyPatrolPoints;
     }
 
     private bool TryGetPatrolPoint(Vector3 sectionOrigin, out Vector3 patrolPoint, bool preferSidePoint)
