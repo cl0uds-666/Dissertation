@@ -58,7 +58,7 @@ public class CSVLogger : MonoBehaviour
                "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
                "CompletionTime,HealthStart,HealthEnd,HealthLost," +
                "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
-               "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
+               "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills,RunDeterminer";
     }
 
     private void ValidateHeaderOnce(bool forceMigration = false)
@@ -121,9 +121,16 @@ public class CSVLogger : MonoBehaviour
         row.Append(metrics.timeUndetected.ToString("F2")).Append(',');
         row.Append(metrics.timesDetected).Append(',');
         row.Append(metrics.stealthKills).Append(',');
-        row.Append(metrics.detectedKills);
+        row.Append(metrics.detectedKills).Append(',');
+        row.Append(SanitizeCsvText(GetRunDeterminer(metrics)));
 
         AppendWithRetry(row + "\n");
+    }
+
+    private string GetRunDeterminer(SectionMetrics metrics)
+    {
+        // A run is considered stealth when the player was never detected.
+        return metrics.timesDetected <= 0 ? "Stealth" : "Aggressor";
     }
 
     private void AppendWithRetry(string content)
