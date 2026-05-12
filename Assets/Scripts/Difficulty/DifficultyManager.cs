@@ -2,6 +2,12 @@ using UnityEngine;
 
 public class DifficultyManager : MonoBehaviour
 {
+    private void Awake()
+    {
+        adaptiveDifficultyEnabled = GameModeSelection.IsAdaptive();
+        currentDifficultyState = GameModeSelection.GetInitialDifficultyState();
+    }
+
     [Header("Mode")]
     [Tooltip("If false, difficulty state stays fixed, but analysis and logging still run.")]
     public bool adaptiveDifficultyEnabled = true;
@@ -57,10 +63,54 @@ public class DifficultyManager : MonoBehaviour
     public int accuracyWeight = 1;
     public int ttkWeight = 1;
 
+    [Header("Stealth Branch Weights")]
+    public int stealthUndetectedWeight = 2;
+    public int stealthDetectionWeight = 2;
+    public int stealthKillWeight = 1;
+
+    [Header("Stealth Branch Flow Zone")]
+    [Range(0f, 1f)] public float stealthUndetectedTooLowMax = 0.55f;
+    [Range(0f, 1f)] public float stealthUndetectedFlowMin = 0.75f;
+    [Range(0f, 1f)] public float stealthKillTooLowMax = 0.35f;
+    [Range(0f, 1f)] public float stealthKillFlowMin = 0.6f;
+    [Range(0f, 1f)] public float stealthDetectionTooHighMin = 0.6f;
+    [Range(0f, 1f)] public float stealthDetectionFlowMax = 0.3f;
+
     [Header("Debug")]
     public bool logDifficultyChanges = true;
 
+    [Header("Playstyle Classification")]
+    [Tooltip("Weight for undetected time share when inferring stealth intent.")]
+    public float stealthIntentUndetectedWeight = 0.5f;
+    [Tooltip("Weight for stealth kill share when inferring stealth intent.")]
+    public float stealthIntentKillWeight = 0.4f;
+    [Tooltip("Penalty weight for detection pressure when inferring stealth intent.")]
+    public float stealthIntentDetectionPenaltyWeight = 0.1f;
+    [Tooltip("Detection events per second that maps to maximum normalized detection pressure.")]
+    public float maxDetectionEventsPerSecond = 0.25f;
+    [Range(0f, 1f)]
+    [Tooltip("Enter stealth classification when score meets/exceeds this threshold.")]
+    public float stealthEnterThreshold = 0.65f;
+    [Range(0f, 1f)]
+    [Tooltip("Exit stealth classification when score drops below this threshold.")]
+    public float stealthExitThreshold = 0.55f;
+
     private DifficultyAnalysisResult lastAnalysisResult;
+    private bool wasClassifiedAsStealthLastSection;
+    [Range(0f, 1f)] public float stealthPressureState;
+    [Range(0f, 1f)] public float stealthPressureGain = 0.35f;
+    [Range(0f, 1f)] public float stealthPressureDecay = 0.2f;
+    [Range(0f, 1f)] public float stealthPressureNeutral = 0.25f;
+    [Range(0f, 1f)] public float stealthPressureNeutralDecay = 0.08f;
+    [Range(0f, 1f)] public float maxAffordanceStepPerSection = 0.12f;
+    public int minimumViableCoverCount = 4;
+    [Range(0f, 1f)] public float minimumTallCoverAvailability = 0.2f;
+
+    private bool hasLastAffordanceProfile;
+    private float lastStealthCoverMinHeight;
+    private float lastStealthCoverMaxHeight;
+    private float lastTallCoverFraction;
+    private float lastSideContinuityCap;
 
     private readonly System.Collections.Generic.List<float> healthLostHistory = new System.Collections.Generic.List<float>();
     private readonly System.Collections.Generic.List<float> completionTimeHistory = new System.Collections.Generic.List<float>();
@@ -76,6 +126,7 @@ public class DifficultyManager : MonoBehaviour
         float enemyPressure = Sigmoid(d * 0.95f);
         float lethalityPressure = Sigmoid(d * 0.85f);
         float coverRelief = Sigmoid(-d * 0.75f);
+        float activeStealthPressure = wasClassifiedAsStealthLastSection ? Mathf.Clamp01(stealthPressureState) : 0f;
 
         int enemyCount = Mathf.Clamp(Mathf.RoundToInt(2f + Mathf.Exp(Mathf.Clamp(d, -2f, 4f)) * 0.95f), 2, 24);
         float enemyHealth = Mathf.Clamp(35f + (enemyPressure * 95f), 25f, 150f);
@@ -88,7 +139,7 @@ public class DifficultyManager : MonoBehaviour
         float enemyShotSpread = Mathf.Clamp(0.50f - (enemyPressure * 0.42f), 0.04f, 0.58f);
         float peekDamageChance = Mathf.Clamp(0.18f + (lethalityPressure * 0.64f), 0.08f, 0.86f);
 
-        int coverCount = Mathf.Clamp(Mathf.RoundToInt(12f - (enemyPressure * 9f) + (coverRelief * 4f)), 3, 16);
+        int coverCount = Mathf.Clamp(Mathf.RoundToInt(12f - (enemyPressure * 9f) + (coverRelief * 4f)), Mathf.Max(1, minimumViableCoverCount), 16);
         float coverMinSize = Mathf.Clamp(0.9f + (coverRelief * 1.8f), 0.8f, 3.2f);
         float coverMaxSize = Mathf.Clamp(2.4f + (coverRelief * 2.8f), 1.8f, 5.8f);
         float coverMinHeight = Mathf.Clamp(0.8f + (coverRelief * 0.55f), 0.7f, 1.5f);
@@ -100,8 +151,21 @@ public class DifficultyManager : MonoBehaviour
         float sideCoverSegmentLength = Mathf.Clamp(3.0f - (enemyPressure * 2.1f), 0.9f, 3.2f);
         float sideCoverGapMin = Mathf.Clamp(0.75f + (enemyPressure * 3.1f), 0.6f, 4.2f);
         float sideCoverGapMax = Mathf.Clamp(1.7f + (enemyPressure * 3.8f), 1.2f, 5.0f);
+        float targetStealthCoverMinHeight = Mathf.Clamp(1.15f - (activeStealthPressure * 0.45f), 0.7f, 1.25f);
+        float targetStealthCoverMaxHeight = Mathf.Clamp(1.55f - (activeStealthPressure * 0.55f), 0.95f, 1.65f);
+        float targetTallCoverFraction = Mathf.Clamp01(0.72f - (activeStealthPressure * 0.60f));
+        float targetSideContinuityCap = Mathf.Clamp01(0.95f - (activeStealthPressure * 0.55f));
+        float enemyVisionRangeMultiplier = Mathf.Clamp(1f + (activeStealthPressure * 0.35f), 1f, 1.35f);
+        float enemyVisionAngleMultiplier = Mathf.Clamp(1f + (activeStealthPressure * 0.22f), 1f, 1.22f);
 
-        return new DifficultyProfile(
+        float step = Mathf.Clamp01(maxAffordanceStepPerSection);
+        float stealthCoverMinHeight = hasLastAffordanceProfile ? Mathf.Lerp(lastStealthCoverMinHeight, targetStealthCoverMinHeight, step) : targetStealthCoverMinHeight;
+        float stealthCoverMaxHeight = hasLastAffordanceProfile ? Mathf.Lerp(lastStealthCoverMaxHeight, targetStealthCoverMaxHeight, step) : targetStealthCoverMaxHeight;
+        float maxTallCoverFraction = hasLastAffordanceProfile ? Mathf.Lerp(lastTallCoverFraction, targetTallCoverFraction, step) : targetTallCoverFraction;
+        float sideContinuityCap = hasLastAffordanceProfile ? Mathf.Lerp(lastSideContinuityCap, targetSideContinuityCap, step) : targetSideContinuityCap;
+        maxTallCoverFraction = Mathf.Max(Mathf.Clamp01(minimumTallCoverAvailability), Mathf.Clamp01(maxTallCoverFraction));
+
+        DifficultyProfile profile = new DifficultyProfile(
             d,
             enemyCount,
             enemyHealth,
@@ -121,11 +185,35 @@ public class DifficultyManager : MonoBehaviour
             coverMaxHeight,
             sideCoverEnabled,
             sideCoverContinuity,
+            sideContinuityCap,
             sideCoverHeight,
             sideCoverSegmentLength,
             sideCoverGapMin,
-            sideCoverGapMax
+            sideCoverGapMax,
+            stealthCoverMinHeight,
+            stealthCoverMaxHeight,
+            maxTallCoverFraction,
+            enemyVisionRangeMultiplier,
+            enemyVisionAngleMultiplier
         );
+
+        if (logDifficultyChanges)
+        {
+            Debug.Log(
+                "Affordance Shaping" +
+                "\nCoverCount: " + coverCount +
+                "\nHeightBand target/current: [" + targetStealthCoverMinHeight.ToString("F2") + ", " + targetStealthCoverMaxHeight.ToString("F2") + "] -> [" + stealthCoverMinHeight.ToString("F2") + ", " + stealthCoverMaxHeight.ToString("F2") + "]" +
+                "\nSideContinuityCap target/current: " + targetSideContinuityCap.ToString("F2") + " -> " + sideContinuityCap.ToString("F2") +
+                "\nTallCoverFraction target/current: " + targetTallCoverFraction.ToString("F2") + " -> " + maxTallCoverFraction.ToString("F2")
+            );
+        }
+
+        hasLastAffordanceProfile = true;
+        lastStealthCoverMinHeight = stealthCoverMinHeight;
+        lastStealthCoverMaxHeight = stealthCoverMaxHeight;
+        lastTallCoverFraction = maxTallCoverFraction;
+        lastSideContinuityCap = sideContinuityCap;
+        return profile;
     }
 
     public DifficultyAnalysisResult AnalyseSectionPerformance(SectionMetrics metrics)
@@ -138,10 +226,41 @@ public class DifficultyManager : MonoBehaviour
         float smoothedAccuracy = GetSmoothedMetric(accuracyHistory, metrics.accuracyPercent);
         float smoothedTTK = GetSmoothedMetric(ttkHistory, metrics.averageEnemyTimeToKill);
 
-        string healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
-        string timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
-        string accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
-        string ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
+        PlaystyleSnapshot playstyle = ClassifyPlaystyle(metrics);
+
+        string healthResult = "Not Used";
+        string timeResult = "Not Used";
+        string accuracyResult = "Not Used";
+        string ttkResult = "Not Used";
+        string stealthUndetectedResult = "Not Used";
+        string stealthDetectionResult = "Not Used";
+        string stealthKillResult = "Not Used";
+        string scoringBranch = playstyle.isStealth ? "Stealth" : "Assault";
+
+        if (playstyle.isStealth)
+        {
+            stealthUndetectedResult = EvaluateStealthUndetected(playstyle.undetectedRatio, ref flowScore);
+            stealthDetectionResult = EvaluateStealthDetection(playstyle.detectionPressure, ref flowScore);
+            stealthKillResult = EvaluateStealthKill(playstyle.stealthKillRatio, ref flowScore);
+            float stealthSuccess = Mathf.Clamp01(
+                (playstyle.undetectedRatio * 0.45f) +
+                (playstyle.stealthKillRatio * 0.35f) +
+                ((1f - playstyle.detectionPressure) * 0.20f));
+            stealthPressureState = Mathf.Lerp(stealthPressureState, stealthSuccess, Mathf.Clamp01(stealthPressureGain));
+        }
+        else
+        {
+            healthResult = EvaluateHealthLost(smoothedHealthLost, ref flowScore);
+            timeResult = EvaluateCompletionTime(smoothedCompletionTime, ref flowScore);
+            accuracyResult = EvaluateAccuracy(smoothedAccuracy, ref flowScore);
+            ttkResult = EvaluateTTK(smoothedTTK, ref flowScore);
+            stealthPressureState = Mathf.Lerp(stealthPressureState, 0f, Mathf.Clamp01(stealthPressureDecay));
+        }
+
+        if (!playstyle.isStealth)
+        {
+            stealthPressureState = Mathf.Lerp(stealthPressureState, Mathf.Clamp01(stealthPressureNeutral), Mathf.Clamp01(stealthPressureNeutralDecay));
+        }
 
         string overallResult = "Flow Zone";
         if (flowScore < 0) { overallResult = "Too Easy"; }
@@ -174,6 +293,15 @@ public class DifficultyManager : MonoBehaviour
         result.completionTimeRating = timeResult;
         result.accuracyRating = accuracyResult;
         result.ttkRating = ttkResult;
+        result.playstyleClassification = playstyle.isStealth ? "Stealth" : "Non-Stealth";
+        result.stealthIntentScore = playstyle.stealthIntentScore;
+        result.undetectedRatio = playstyle.undetectedRatio;
+        result.stealthKillRatio = playstyle.stealthKillRatio;
+        result.detectionPressure = playstyle.detectionPressure;
+        result.scoringBranchUsed = scoringBranch;
+        result.stealthUndetectedRating = stealthUndetectedResult;
+        result.stealthDetectionRating = stealthDetectionResult;
+        result.stealthKillRating = stealthKillResult;
 
         lastAnalysisResult = result;
 
@@ -187,6 +315,13 @@ public class DifficultyManager : MonoBehaviour
                 "\nAverage Enemy TTK: " + metrics.averageEnemyTimeToKill.ToString("F2") + "s -> " + ttkResult +
                 "\nSmoothed Metrics [N=" + Mathf.Max(1, smoothingWindow) + "]: HL=" + smoothedHealthLost.ToString("F1") + ", CT=" + smoothedCompletionTime.ToString("F2") + "s, ACC=" + smoothedAccuracy.ToString("F1") + "%, TTK=" + smoothedTTK.ToString("F2") + "s" +
                 "\nSmoothing Confidence: " + confidence.ToString("F2") +
+                "\nPlaystyle: " + result.playstyleClassification +
+                " (score " + playstyle.stealthIntentScore.ToString("F2") +
+                ", undetected " + playstyle.undetectedRatio.ToString("P0") +
+                ", stealth kills " + playstyle.stealthKillRatio.ToString("P0") +
+                ", detection pressure " + playstyle.detectionPressure.ToString("F2") + ")" +
+                "\nScoring Branch: " + scoringBranch +
+                "\nStealth Ratings: Undetected=" + stealthUndetectedResult + ", Detection=" + stealthDetectionResult + ", StealthKills=" + stealthKillResult +
                 "\nFlow Score: " + flowScore +
                 "\nOverall Result: " + overallResult +
                 "\nAdaptive Enabled: " + adaptiveDifficultyEnabled +
@@ -230,6 +365,58 @@ public class DifficultyManager : MonoBehaviour
         return Mathf.Lerp(Mathf.Clamp01(confidenceFloor), 1f, historyRatio);
     }
 
+
+    private struct PlaystyleSnapshot
+    {
+        public bool isStealth;
+        public float stealthIntentScore;
+        public float undetectedRatio;
+        public float stealthKillRatio;
+        public float detectionPressure;
+    }
+
+    private PlaystyleSnapshot ClassifyPlaystyle(SectionMetrics metrics)
+    {
+        float totalTrackedTime = metrics.timeDetected + metrics.timeUndetected;
+        float undetectedRatio = totalTrackedTime > 0f ? metrics.timeUndetected / totalTrackedTime : 0f;
+
+        float stealthKillRatio = metrics.enemiesKilled > 0
+            ? (float)metrics.stealthKills / metrics.enemiesKilled
+            : 0f;
+
+        float completionTime = Mathf.Max(metrics.completionTime, 0.0001f);
+        float detectionRate = metrics.timesDetected / completionTime;
+        float normalizedDetectionPressure = maxDetectionEventsPerSecond > 0f
+            ? Mathf.Clamp01(detectionRate / maxDetectionEventsPerSecond)
+            : 1f;
+
+        float weightedScore =
+            (undetectedRatio * stealthIntentUndetectedWeight) +
+            (stealthKillRatio * stealthIntentKillWeight) -
+            (normalizedDetectionPressure * stealthIntentDetectionPenaltyWeight);
+
+        float totalWeight = Mathf.Max(0.0001f,
+            Mathf.Abs(stealthIntentUndetectedWeight) +
+            Mathf.Abs(stealthIntentKillWeight) +
+            Mathf.Abs(stealthIntentDetectionPenaltyWeight));
+
+        float stealthIntentScore = Mathf.Clamp01(weightedScore / totalWeight);
+
+        bool isStealth = wasClassifiedAsStealthLastSection
+            ? stealthIntentScore >= Mathf.Clamp01(stealthExitThreshold)
+            : stealthIntentScore >= Mathf.Clamp01(stealthEnterThreshold);
+
+        wasClassifiedAsStealthLastSection = isStealth;
+
+        PlaystyleSnapshot snapshot;
+        snapshot.isStealth = isStealth;
+        snapshot.stealthIntentScore = stealthIntentScore;
+        snapshot.undetectedRatio = undetectedRatio;
+        snapshot.stealthKillRatio = stealthKillRatio;
+        snapshot.detectionPressure = normalizedDetectionPressure;
+        return snapshot;
+    }
+
     private float Sigmoid(float x)
     {
         return 1f / (1f + Mathf.Exp(-x));
@@ -265,6 +452,27 @@ public class DifficultyManager : MonoBehaviour
         if (averageTTK <= ttkTooFastMax) { flowScore -= ttkWeight; return "Too Easy"; }
         if (averageTTK >= ttkTooSlowMin) { flowScore += ttkWeight; return "Too Hard"; }
         if (averageTTK >= ttkFlowMin && averageTTK <= ttkFlowMax) { return "Flow Zone"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthUndetected(float undetectedRatio, ref int flowScore)
+    {
+        if (undetectedRatio <= stealthUndetectedTooLowMax) { flowScore += stealthUndetectedWeight; return "Too Hard"; }
+        if (undetectedRatio >= stealthUndetectedFlowMin) { flowScore -= stealthUndetectedWeight; return "Too Easy"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthDetection(float detectionPressure, ref int flowScore)
+    {
+        if (detectionPressure >= stealthDetectionTooHighMin) { flowScore += stealthDetectionWeight; return "Too Hard"; }
+        if (detectionPressure <= stealthDetectionFlowMax) { flowScore -= stealthDetectionWeight; return "Too Easy"; }
+        return "Borderline";
+    }
+
+    private string EvaluateStealthKill(float stealthKillRatio, ref int flowScore)
+    {
+        if (stealthKillRatio <= stealthKillTooLowMax) { flowScore += stealthKillWeight; return "Too Hard"; }
+        if (stealthKillRatio >= stealthKillFlowMin) { flowScore -= stealthKillWeight; return "Too Easy"; }
         return "Borderline";
     }
 }
