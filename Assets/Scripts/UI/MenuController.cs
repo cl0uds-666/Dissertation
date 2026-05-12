@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
-using System.IO;
 
 public class MenuController : MonoBehaviour
 {
