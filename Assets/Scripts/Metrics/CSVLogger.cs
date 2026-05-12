@@ -19,9 +19,10 @@ public class CSVLogger : MonoBehaviour
     private string filePath;
     private bool headerValidated;
 
+    public string GetFilePath() { return filePath; }
+
     private void Awake()
     {
-        // Keep only one logger instance to avoid concurrent file writes.
         CSVLogger[] loggers = FindObjectsByType<CSVLogger>(FindObjectsSortMode.None);
 
         if (loggers.Length > 1)
@@ -38,13 +39,9 @@ public class CSVLogger : MonoBehaviour
 
     private void EnsureFileExistsWithHeader()
     {
-        if (File.Exists(filePath))
-        {
-            return;
-        }
+        if (File.Exists(filePath)) return;
 
         string header = GetCsvHeader();
-
         lock (FileWriteLock)
         {
             if (!File.Exists(filePath))
@@ -55,24 +52,18 @@ public class CSVLogger : MonoBehaviour
         }
     }
 
-
     private string GetCsvHeader()
     {
-        return
-            "SectionIndex,DifficultyStateBefore,DifficultyStateAfter,FlowScore,FlowResult," +
-            "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
-            "CompletionTime,HealthStart,HealthEnd,HealthLost," +
-            "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
-            "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
+        return "SessionId,SelectedMode,AdaptiveEnabled,SectionIndex,DifficultyStateBefore,DifficultyStateAfter,FlowScore,FlowResult," +
+               "EnemyCount,ShooterCount,ChaserCount,CoverCount," +
+               "CompletionTime,HealthStart,HealthEnd,HealthLost," +
+               "ShotsFired,ShotsHit,AccuracyPercent,EnemiesKilled,AverageEnemyTTK," +
+               "TimeDetected,TimeUndetected,TimesDetected,StealthKills,DetectedKills";
     }
 
     private void ValidateHeaderOnce(bool forceMigration = false)
     {
-        if (headerValidated && !forceMigration)
-        {
-            return;
-        }
-
+        if (headerValidated && !forceMigration) return;
         MigrateHeaderIfNeeded();
         headerValidated = true;
     }
@@ -80,70 +71,52 @@ public class CSVLogger : MonoBehaviour
     private void MigrateHeaderIfNeeded()
     {
         string expectedHeader = GetCsvHeader();
-
-        if (!File.Exists(filePath))
-        {
-            return;
-        }
+        if (!File.Exists(filePath)) return;
 
         string[] lines = File.ReadAllLines(filePath);
-
         if (lines.Length == 0)
         {
             File.WriteAllText(filePath, expectedHeader + "\n");
             return;
         }
 
-        if (lines[0] == expectedHeader)
-        {
-            return;
-        }
-
-        // Keep existing data rows, but upgrade the header so metric names are present.
+        if (lines[0] == expectedHeader) return;
         lines[0] = expectedHeader;
         File.WriteAllLines(filePath, lines);
     }
 
     public void LogSectionResult(SectionMetrics metrics, DifficultyAnalysisResult analysis)
     {
-        if (metrics == null)
+        if (metrics == null || analysis == null)
         {
-            Debug.LogWarning("CSVLogger received null SectionMetrics.");
-            return;
-        }
-
-        if (analysis == null)
-        {
-            Debug.LogWarning("CSVLogger received null DifficultyAnalysisResult.");
+            Debug.LogWarning("CSVLogger received null data.");
             return;
         }
 
         EnsureFileExistsWithHeader();
 
         StringBuilder row = new StringBuilder();
-
+        row.Append(SanitizeCsvText(GameModeSelection.SessionId)).Append(',');
+        row.Append(SanitizeCsvText(GameModeSelection.SelectedMode.ToString())).Append(',');
+        row.Append(GameModeSelection.IsAdaptive() ? "1" : "0").Append(',');
         row.Append(metrics.sectionIndex).Append(',');
         row.Append(analysis.difficultyStateBefore.ToString("F3")).Append(',');
         row.Append(analysis.difficultyStateAfter.ToString("F3")).Append(',');
         row.Append(analysis.flowScore).Append(',');
         row.Append(SanitizeCsvText(analysis.flowResult)).Append(',');
-
         row.Append(metrics.enemiesSpawned).Append(',');
         row.Append(metrics.shooterCount).Append(',');
         row.Append(metrics.chaserCount).Append(',');
         row.Append(metrics.coverCount).Append(',');
-
         row.Append(metrics.completionTime.ToString("F2")).Append(',');
         row.Append(metrics.playerHealthAtStart.ToString("F0")).Append(',');
         row.Append(metrics.playerHealthAtEnd.ToString("F0")).Append(',');
         row.Append(metrics.playerHealthLost.ToString("F0")).Append(',');
-
         row.Append(metrics.shotsFired).Append(',');
         row.Append(metrics.shotsHit).Append(',');
         row.Append(metrics.accuracyPercent.ToString("F1")).Append(',');
         row.Append(metrics.enemiesKilled).Append(',');
         row.Append(metrics.averageEnemyTimeToKill.ToString("F2")).Append(',');
-
         row.Append(metrics.timeDetected.ToString("F2")).Append(',');
         row.Append(metrics.timeUndetected.ToString("F2")).Append(',');
         row.Append(metrics.timesDetected).Append(',');
@@ -156,28 +129,21 @@ public class CSVLogger : MonoBehaviour
     private void AppendWithRetry(string content)
     {
         const int maxAttempts = 5;
-
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
-                lock (FileWriteLock)
-                {
-                    File.AppendAllText(filePath, content);
-                }
-
+                lock (FileWriteLock) { File.AppendAllText(filePath, content); }
                 return;
             }
             catch (IOException ex)
             {
                 Debug.LogWarning("CSVLogger write attempt " + attempt + " failed due to file lock. " + ex.Message);
-
                 if (attempt == maxAttempts)
                 {
                     Debug.LogError("CSVLogger failed to write after retries. Path: " + filePath);
                     return;
                 }
-
                 Thread.Sleep(20 * attempt);
             }
         }
@@ -185,11 +151,25 @@ public class CSVLogger : MonoBehaviour
 
     private string SanitizeCsvText(string value)
     {
-        if (string.IsNullOrEmpty(value))
+        if (string.IsNullOrEmpty(value)) return "";
+        return value.Replace(",", " ");
+    }
+
+    [ContextMenu("Clear CSV Log")]
+    public void ClearCsvLog()
+    {
+        if (string.IsNullOrEmpty(filePath))
         {
-            return "";
+            filePath = Path.Combine(Application.persistentDataPath, FileName);
         }
 
-        return value.Replace(",", " ");
+        lock (FileWriteLock)
+        {
+            File.WriteAllText(filePath, GetCsvHeader() + "\n");
+        }
+
+        headerValidated = false;
+        ValidateHeaderOnce(forceMigration: true);
+        Debug.Log("CSVLogger cleared log file: " + filePath);
     }
 }
