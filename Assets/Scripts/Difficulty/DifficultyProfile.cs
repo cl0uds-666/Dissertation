@@ -37,18 +37,10 @@ public class DifficultyProfile
     [Header("Side Cover Lane Settings")]
     public bool sideCoverEnabled;
     [Range(0f, 1f)] public float sideCoverContinuity;
-    [Range(0f, 1f)] public float sideCoverContinuityCap;
     public float sideCoverHeight;
     public float sideCoverSegmentLength;
     public float sideCoverGapMin;
     public float sideCoverGapMax;
-
-    [Header("Stealth Affordance Settings")]
-    public float targetCoverHeightMin;
-    public float targetCoverHeightMax;
-    [Range(0f, 1f)] public float maxTallCoverFraction;
-    public float enemyVisionRangeMultiplier;
-    public float enemyVisionAngleMultiplier;
 
     public DifficultyProfile(
         float newDifficultyState,
@@ -74,17 +66,10 @@ public class DifficultyProfile
 
         bool newSideCoverEnabled,
         float newSideCoverContinuity,
-        float newSideCoverContinuityCap,
         float newSideCoverHeight,
         float newSideCoverSegmentLength,
         float newSideCoverGapMin,
-        float newSideCoverGapMax,
-
-        float newTargetCoverHeightMin,
-        float newTargetCoverHeightMax,
-        float newMaxTallCoverFraction,
-        float newEnemyVisionRangeMultiplier,
-        float newEnemyVisionAngleMultiplier
+        float newSideCoverGapMax
     )
     {
         difficultyState = newDifficultyState;
@@ -110,16 +95,9 @@ public class DifficultyProfile
 
         sideCoverEnabled = newSideCoverEnabled;
         sideCoverContinuity = newSideCoverContinuity;
-        sideCoverContinuityCap = newSideCoverContinuityCap;
         sideCoverHeight = newSideCoverHeight;
         sideCoverSegmentLength = newSideCoverSegmentLength;
         sideCoverGapMin = newSideCoverGapMin;
         sideCoverGapMax = newSideCoverGapMax;
-
-        targetCoverHeightMin = newTargetCoverHeightMin;
-        targetCoverHeightMax = newTargetCoverHeightMax;
-        maxTallCoverFraction = newMaxTallCoverFraction;
-        enemyVisionRangeMultiplier = newEnemyVisionRangeMultiplier;
-        enemyVisionAngleMultiplier = newEnemyVisionAngleMultiplier;
     }
 }

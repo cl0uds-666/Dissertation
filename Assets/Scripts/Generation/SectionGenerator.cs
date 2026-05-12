@@ -57,10 +57,6 @@ public class SectionGenerator : MonoBehaviour
     public int enemyCount = 3;
     public float enemyMoveSpeed = 3f;
     public float enemySpawnClearRadius = 6f;
-    [Min(2)] public int patrolPointCountMin = 4;
-    [Min(2)] public int patrolPointCountMax = 8;
-    [Min(2)] public int patrolRoutePointsPerEnemyMin = 3;
-    [Min(2)] public int patrolRoutePointsPerEnemyMax = 6;
 
     [Tooltip("How much empty space is required around an enemy spawn point.")]
     public float enemySpawnCheckRadius = 1.2f;
@@ -158,16 +154,10 @@ public class SectionGenerator : MonoBehaviour
                 coverHeightRange.y,
                 true,
                 0.7f,
-                0.7f,
                 1.0f,
                 2.5f,
                 1.4f,
-                2.4f,
-                coverHeightRange.x,
-                coverHeightRange.y,
-                0.7f,
-                1f,
-                1f
+                2.4f
             );
         }
 
@@ -348,8 +338,7 @@ public class SectionGenerator : MonoBehaviour
         while (currentZ < zEnd)
         {
             float segmentLength = Mathf.Max(0.5f, currentProfile.sideCoverSegmentLength);
-            float continuity = Mathf.Min(currentProfile.sideCoverContinuity, currentProfile.sideCoverContinuityCap);
-            bool placeSegment = Random.value <= continuity;
+            bool placeSegment = Random.value <= currentProfile.sideCoverContinuity;
 
             if (placeSegment)
             {
@@ -400,23 +389,12 @@ public class SectionGenerator : MonoBehaviour
 
         float minSize = currentProfile != null ? currentProfile.coverMinSize : coverSizeXRange.x;
         float maxSize = currentProfile != null ? currentProfile.coverMaxSize : coverSizeXRange.y;
-        float minHeight = currentProfile != null ? Mathf.Max(currentProfile.coverMinHeight, currentProfile.targetCoverHeightMin) : coverHeightRange.x;
-        float maxHeight = currentProfile != null ? Mathf.Min(currentProfile.coverMaxHeight, currentProfile.targetCoverHeightMax) : coverHeightRange.y;
-        if (maxHeight < minHeight) { maxHeight = minHeight; }
+        float minHeight = currentProfile != null ? currentProfile.coverMinHeight : coverHeightRange.x;
+        float maxHeight = currentProfile != null ? currentProfile.coverMaxHeight : coverHeightRange.y;
 
         float randomX = Random.Range(minSize, maxSize);
         float randomZ = Random.Range(minSize, maxSize);
         float randomHeight = Random.Range(minHeight, maxHeight);
-        if (currentProfile != null)
-        {
-            float tallThreshold = Mathf.Lerp(minHeight, maxHeight, 0.68f);
-            bool wouldBeTall = randomHeight >= tallThreshold;
-            bool allowTall = Random.value <= Mathf.Clamp01(currentProfile.maxTallCoverFraction);
-            if (wouldBeTall && !allowTall)
-            {
-                randomHeight = Random.Range(minHeight, Mathf.Max(minHeight, tallThreshold));
-            }
-        }
 
         cover.transform.localScale = new Vector3(randomX, randomHeight, randomZ);
         cover.transform.position = new Vector3(coverPosition.x, randomHeight / 2f, coverPosition.z);
@@ -577,9 +555,7 @@ public class SectionGenerator : MonoBehaviour
                     movementMode = EnemyAI.MovementMode.Patrol;
                 }
 
-                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol
-                    ? BuildPatrolRouteForEnemy(sectionPatrolPoints, i)
-                    : null;
+                List<Vector3> patrolPointsForEnemy = movementMode == EnemyAI.MovementMode.Patrol ? sectionPatrolPoints : null;
 
                 enemyAI.Setup(player, generatedEnemySpeed, movementMode, patrolPointsForEnemy);
 
@@ -604,15 +580,6 @@ public class SectionGenerator : MonoBehaviour
             if (enemyLineOfSight != null)
             {
                 enemyLineOfSight.Setup(player);
-                if (currentProfile != null)
-                {
-                    enemyLineOfSight.visionRange *= currentProfile.enemyVisionRangeMultiplier;
-                    enemyLineOfSight.visionAngle = Mathf.Clamp(
-                        enemyLineOfSight.visionAngle * currentProfile.enemyVisionAngleMultiplier,
-                        5f,
-                        360f
-                    );
-                }
             }
 
             EnemyShooter enemyShooter = enemy.GetComponent<EnemyShooter>();
@@ -742,9 +709,7 @@ public class SectionGenerator : MonoBehaviour
     {
         List<Vector3> points = new List<Vector3>();
 
-        int minCount = Mathf.Max(2, patrolPointCountMin);
-        int maxCountExclusive = Mathf.Max(minCount + 1, patrolPointCountMax + 1);
-        int pointCount = Random.Range(minCount, maxCountExclusive);
+        int pointCount = Random.Range(2, 5);
 
         for (int i = 0; i < pointCount; i++)
         {
@@ -755,41 +720,6 @@ public class SectionGenerator : MonoBehaviour
         }
 
         return points;
-    }
-
-    private List<Vector3> BuildPatrolRouteForEnemy(List<Vector3> sectionPatrolPoints, int enemyIndex)
-    {
-        List<Vector3> route = new List<Vector3>();
-        if (sectionPatrolPoints == null || sectionPatrolPoints.Count == 0)
-        {
-            return route;
-        }
-
-        int minRoute = Mathf.Max(2, patrolRoutePointsPerEnemyMin);
-        int maxRoute = Mathf.Max(minRoute, patrolRoutePointsPerEnemyMax);
-        int targetCount = Mathf.Clamp(Random.Range(minRoute, maxRoute + 1), 2, sectionPatrolPoints.Count);
-
-        int startOffset = enemyIndex % sectionPatrolPoints.Count;
-        int stride = 1 + ((enemyIndex * 2 + 1) % Mathf.Max(1, sectionPatrolPoints.Count - 1));
-
-        HashSet<int> used = new HashSet<int>();
-        for (int step = 0; step < sectionPatrolPoints.Count && route.Count < targetCount; step++)
-        {
-            int index = (startOffset + step * stride) % sectionPatrolPoints.Count;
-            if (!used.Add(index))
-            {
-                continue;
-            }
-
-            route.Add(sectionPatrolPoints[index]);
-        }
-
-        if (route.Count < 2)
-        {
-            route.Add(sectionPatrolPoints[(startOffset + 1) % sectionPatrolPoints.Count]);
-        }
-
-        return route;
     }
 
     private bool TryGetPatrolPoint(Vector3 sectionOrigin, out Vector3 patrolPoint, bool preferSidePoint)
