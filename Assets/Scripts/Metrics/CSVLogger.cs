@@ -19,6 +19,8 @@ public class CSVLogger : MonoBehaviour
     private string filePath;
     private bool headerValidated;
 
+    public string GetFilePath() { return filePath; }
+
     private void Awake()
     {
         // Keep only one logger instance to avoid concurrent file writes.
@@ -194,5 +196,25 @@ public class CSVLogger : MonoBehaviour
         }
 
         return value.Replace(",", " ");
+    }
+
+    [ContextMenu("Clear CSV Log")]
+    public void ClearCsvLog()
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            filePath = Path.Combine(Application.persistentDataPath, FileName);
+        }
+
+        string header = GetCsvHeader();
+
+        lock (FileWriteLock)
+        {
+            File.WriteAllText(filePath, header + "\n");
+        }
+
+        headerValidated = false;
+        ValidateHeaderOnce(forceMigration: true);
+        Debug.Log("CSVLogger cleared log file: " + filePath);
     }
 }
