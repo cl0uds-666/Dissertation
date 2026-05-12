@@ -51,37 +51,6 @@ public class MenuController : MonoBehaviour
 #endif
     }
 
-    public void ClearCsvInEditor()
-    {
-#if UNITY_EDITOR
-        CSVLogger logger = FindAnyObjectByType<CSVLogger>();
-        if (logger == null)
-        {
-            Debug.LogWarning("MenuController: No CSVLogger found in active scene.");
-            return;
-        }
-
-        logger.ClearCsvLog();
-#else
-        Debug.LogWarning("ClearCsvInEditor is editor-only.");
-#endif
-    }
-
-    public void OpenCsvFolderInEditor()
-    {
-#if UNITY_EDITOR
-        string path = Application.persistentDataPath;
-        if (!Directory.Exists(path))
-        {
-            Directory.CreateDirectory(path);
-        }
-
-        UnityEditor.EditorUtility.RevealInFinder(path);
-#else
-        Debug.LogWarning("OpenCsvFolderInEditor is editor-only.");
-#endif
-    }
-
     private void SetPanelState(bool showMain, bool showAbout, bool showControls)
     {
         if (mainPanel != null) mainPanel.SetActive(showMain);
