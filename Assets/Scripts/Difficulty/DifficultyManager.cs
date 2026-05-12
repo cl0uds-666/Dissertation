@@ -2,6 +2,12 @@ using UnityEngine;
 
 public class DifficultyManager : MonoBehaviour
 {
+    private void Awake()
+    {
+        adaptiveDifficultyEnabled = GameModeSelection.IsAdaptive();
+        currentDifficultyState = GameModeSelection.GetInitialDifficultyState();
+    }
+
     [Header("Mode")]
     [Tooltip("If false, difficulty state stays fixed, but analysis and logging still run.")]
     public bool adaptiveDifficultyEnabled = true;
